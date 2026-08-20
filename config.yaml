@@ -8,7 +8,7 @@ global:
   map_size: [2800, 1500]  # 战场地图尺寸
 
   test:
-    video_path: 'raw/5.21成都.mp4'  # 测试视频（如果没有留空即可，可自动回退到静态图片测试）
+    video_path: 'input_videos/test001.mp4'  # 测试视频（如果没有，留空即可，可自动回退到静态图片测试）
     loop: True  # 是否循环播放
     start_frame: 0  # 起始帧号
     playback_speed: 0.5  # 播放速度（1.0=正常速度）
@@ -49,9 +49,9 @@ recording:
   queue_size: 4  # 约0.2秒短缓冲，吸收编码抖动；满队列才计为真正的录像丢帧
   max_catchup_seconds: 1.0  # 主循环偶发停顿时允许补齐时间轴，避免成片时长被压缩
   prefer_external: true  # 优先写入已挂载、可写的外接块设备
-  external_directory: 'SHARK-radar-recordings'  # 外接硬盘中的录像根目录
+  external_directory: 'Transistor-radar-recordings'  # 外接硬盘中的录像根目录
   default_root: 'save_img'  # 未检测到外接硬盘时使用的项目内默认目录
-  selected_root: '/media/robot/Ventoy/SHARK-radar-recordings'  # 启动台中操作者确认的实际录像根目录；留空时仍按外接硬盘优先自动选择
+  selected_root: '/media/robot/Ventoy/Transistor-radar-recordings'  # 启动台中操作者确认的实际录像根目录；留空时仍按外接硬盘优先自动选择
 
 projection:
   # 定位投影点来源：
@@ -141,7 +141,7 @@ serial: # 串口
   timeout: 1
 
 referee:
-  # 比赛默认通过同机 ROS2 与 shark-radar-radio 通信；仅显式选择 legacy_serial 才打开本项目串口。
+  # 比赛默认通过同机 ROS2 与 transistor-radar-radio 通信；仅显式选择 legacy_serial 才打开本项目串口。
   transport: 'radio_ros'  # radio_ros / legacy_serial
   telemetry_rate_hz: 20.0  # ROS2 内部同步；裁判 0x0305 仍由无线电侧独立限为 4.8 Hz
 
@@ -184,7 +184,7 @@ paths:
 
 camera_params:
   exposure_time: 11000.0  # 30ms，不限制满幅模式约29.26 FPS
-  gain: 1  # 增益值
+  gain: 1.0  # 增益值
   # 多相机时填写目标相机序列号（与 MVS 枚举一致）；留空则默认使用枚举列表中的第一台（索引 0）
   device_serial: 'DA4528776'
 

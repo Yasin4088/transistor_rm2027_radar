@@ -1,7 +1,7 @@
 """Track-centric radar algorithm components.
 
 The cascade matching design is adapted from HKUST ENTERPRIZE's MIT-licensed
-RM2025 Radar Algorithm (commit f12fe91), with SHARK-specific detection,
+RM2025 Radar Algorithm (commit f12fe91), with Transistor-specific detection,
 identity, timing, and referee-output semantics.
 """
 

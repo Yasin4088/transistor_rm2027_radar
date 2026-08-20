@@ -9,7 +9,7 @@ from copy import deepcopy
 from typing import Callable, Optional
 
 
-RADAR_COMMAND_SCHEMA = 'shark.radar.command.v1'
+RADAR_COMMAND_SCHEMA = 'transistor.radar.command.v1'
 
 
 def normalize_transport_mode(value: object) -> str:
@@ -90,7 +90,7 @@ class RadioRosTransport:
             if not rclpy.ok():
                 rclpy.init(args=None)
                 self._owns_rclpy = True
-            node = Node('shark_vision_radar_transport')
+            node = Node('transistor_vision_radar_transport')
             self._string_type = String
             self._telemetry_publisher = node.create_publisher(
                 String, '/rm_radar_algorithm/telemetry', 10

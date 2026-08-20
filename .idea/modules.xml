@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/shark-radar-vision.iml" filepath="$PROJECT_DIR$/.idea/shark-radar-vision.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/transistor-radar-vision.iml" filepath="$PROJECT_DIR$/.idea/transistor-radar-vision.iml" />
     </modules>
   </component>
 </project>

@@ -103,7 +103,7 @@ class RefereeTransportTests(unittest.TestCase):
             filter_type='sliding_window',
             source_time=100.0,
         )
-        self.assertEqual(telemetry['schema'], 'shark.radar.telemetry.v1')
+        self.assertEqual(telemetry['schema'], 'transistor.radar.telemetry.v1')
         self.assertEqual(len(telemetry['robots']), 12)
         self.assertNotIn('B5', telemetry['robots'])
         self.assertEqual(telemetry['robots']['B1']['state'], 'measured')

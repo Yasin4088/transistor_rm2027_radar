@@ -250,7 +250,7 @@ class MatchLauncher(QMainWindow):
         self.serial_devices = set()
         self.config = load_config(CONFIG_PATH)
 
-        self.setWindowTitle("SHARK 雷达比赛启动台")
+        self.setWindowTitle("Transistor 雷达比赛启动台")
         self.setMinimumSize(1100, 720)
         self.resize(1440, 900)
         self.setStyleSheet(APP_STYLE)
@@ -284,9 +284,9 @@ class MatchLauncher(QMainWindow):
 
         brand_layout = QVBoxLayout()
         brand_layout.setSpacing(2)
-        brand = QLabel("SHARK 雷达比赛启动台")
+        brand = QLabel("Transistor 雷达比赛启动台")
         brand.setObjectName("brand")
-        subtitle = QLabel("江南大学霞客湾校区 SHARK 战队 · RoboMaster 2026")
+        subtitle = QLabel("北京航空航天大学 Transistor 战队 · RoboMaster 2027")
         subtitle.setObjectName("subtitle")
         brand_layout.addWidget(brand)
         brand_layout.addWidget(subtitle)
@@ -738,7 +738,7 @@ class MatchLauncher(QMainWindow):
                 default_root,
                 prefer_external=True,
                 external_directory=recording_config.get(
-                    "external_directory", "SHARK-radar-recordings"
+                    "external_directory", "Transistor-radar-recordings"
                 ),
             )
         except Exception as error:
@@ -1073,14 +1073,14 @@ def _save_screenshot(window, output_path, app):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SHARK 雷达比赛启动台")
+    parser = argparse.ArgumentParser(description="Transistor 雷达比赛启动台")
     parser.add_argument("--smoke-test", action="store_true", help="启动页面后立即退出")
     parser.add_argument("--screenshot", type=Path, help="保存页面截图后退出")
     parser.add_argument("--windowed", action="store_true", help="使用普通窗口而不是最大化")
     arguments = parser.parse_args()
 
     app = QApplication(sys.argv[:1])
-    app.setApplicationName("SHARK Radar Match Console")
+    app.setApplicationName("Transistor Radar Match Console")
     window = MatchLauncher()
     if arguments.windowed or arguments.smoke_test or arguments.screenshot:
         window.show()

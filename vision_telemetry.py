@@ -64,7 +64,7 @@ def build_vision_telemetry(
         else round(max(float(camera_fps), 0.0), 2)
     )
     return {
-        'schema': 'shark.radar.telemetry.v1',
+        'schema': 'transistor.radar.telemetry.v1',
         'source_time': now,
         'side': 'red' if str(side).upper() == 'R' else 'blue',
         'vision': {

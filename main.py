@@ -96,7 +96,7 @@ referee_mode = normalize_transport_mode(config.get('referee', {}).get('transport
 telemetry_rate_hz = min(max(float(config.get('referee', {}).get('telemetry_rate_hz', 20.0)), 1.0), 30.0)
 serial_requested = referee_mode == 'legacy_serial'
 referee_transport = None
-match_run_id = str(os.environ.get('SHARK_MATCH_RUN_ID', '') or '').strip()
+match_run_id = str(os.environ.get('TRANSISTOR_MATCH_RUN_ID', '') or '').strip()
 if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,87}', match_run_id):
     match_run_id = f"vision_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
 try:
@@ -176,7 +176,7 @@ if recording_selected_root is not None and not recording_selected_root.is_absolu
     recording_selected_root = Path(__file__).resolve().parent / recording_selected_root
 recording_prefer_external = bool(recording_config.get('prefer_external', True))
 recording_external_directory = str(
-    recording_config.get('external_directory', 'SHARK-radar-recordings')
+    recording_config.get('external_directory', 'Transistor-radar-recordings')
 )
 report_runtime_status(recording_requested=record_video, recording=False)
 
@@ -1798,7 +1798,7 @@ if referee_mode == 'radio_ros':
     )
     try:
         referee_transport.start()
-        print('radio_ros 本地桥接已启动，等待 shark-radar-radio 状态心跳；裁判串口由无线电侧独占')
+        print('radio_ros 本地桥接已启动，等待 transistor-radar-radio 状态心跳；裁判串口由无线电侧独占')
         report_runtime_status(radio_ros_connected=False, radio_ros_error=None)
     except Exception as error:
         print(f'radio_ros 裁判通信降级，视觉推理继续运行: {error}')
@@ -2015,7 +2015,7 @@ if record_video:
             f"编码器={recording_codec}，后台队列={recording_queue_size}"
         )
         recording_manifest = {
-            "schema": "shark.radar.vision_recording.v1",
+            "schema": "transistor.radar.vision_recording.v1",
             "match_run_id": match_run_id,
             "component_session_id": recording_directory.name,
             "started_at": time.time(),

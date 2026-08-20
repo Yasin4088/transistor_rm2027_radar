@@ -157,7 +157,7 @@ def discover_external_mounts(
 def suggest_recording_storage(
     default_root,
     prefer_external=True,
-    external_directory="SHARK-radar-recordings",
+    external_directory="Transistor-radar-recordings",
     **discovery_options,
 ):
     """Return the preferred recording root without creating any directories."""
@@ -180,7 +180,7 @@ def suggest_recording_storage(
 def select_recording_storage(
     default_root,
     prefer_external=True,
-    external_directory="SHARK-radar-recordings",
+    external_directory="Transistor-radar-recordings",
     selected_root=None,
     **discovery_options,
 ):
@@ -263,7 +263,7 @@ def allocate_named_match_directory(storage_root, session_name):
 def prepare_match_recording_directory(
     default_root,
     prefer_external=True,
-    external_directory="SHARK-radar-recordings",
+    external_directory="Transistor-radar-recordings",
     selected_root=None,
     session_name=None,
     **discovery_options,
