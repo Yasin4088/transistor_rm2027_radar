@@ -1,0 +1,224 @@
+global:
+  state: 'R'  # 己方颜色 R/B，由手动标定窗口的“对方阵营”选项自动更新
+  camera_mode: 'hik'  # 'test':测试模式,'hik':海康相机,'video':USB相机（videocapture）
+  # 多车同时识别：true=本帧所有车 ROI 拼接批量装甲板识别；false=仅对置信度最高的一辆车走装甲板与滤波
+  multi_car_recognition: true
+  use_serial: false  # 兼容旧配置；实际通信方式由 referee.transport 决定
+  save_img: true  # 是否录制地图与相机识别视频（保留旧配置名）
+  map_size: [2800, 1500]  # 战场地图尺寸
+
+  test:
+    video_path: 'raw/5.21成都.mp4'  # 测试视频（如果没有留空即可，可自动回退到静态图片测试）
+    loop: True  # 是否循环播放
+    start_frame: 0  # 起始帧号
+    playback_speed: 0.5  # 播放速度（1.0=正常速度）
+
+# 算法总开关：legacy=2131aef 视觉识别链路；hkust_tracker=可选的新车辆跟踪链路
+algorithm:
+  mode: 'legacy'
+  vehicle_tracker:
+    high_confidence: 0.30  # 只有达到该阈值的检测才能新建车辆轨迹，抑制背景误检
+    low_confidence: 0.10  # 仅用于找回已经确认的遮挡车辆，不会据此新建车辆轨迹
+    confirm_hits: 2  # 连续2帧后显示车辆；单帧误检仍会被过滤，同时降低新车出现延迟
+    remove_seconds: 3.0  # 车辆框彻底丢失后保留轨迹的时间
+    draw_tentative: false  # 不显示尚未连续确认的候选框
+    draw_lost: false  # 不在相机画面显示已经丢失的预测框（地图预测不受影响）
+  armor_roi:
+    size: 320  # 每辆车归一化后的独立装甲板输入尺寸
+    margin_ratio: 0.08  # 车辆 ROI 外扩比例
+    top_k: 2  # 每辆车最多保留的装甲板候选数
+    fallback_canvas_size: 1280  # 静态 armor.engine 回退为 4x4 的 320 方格画布
+  identity:
+    decay: 0.85  # 历史类别证据逐帧衰减
+    min_confidence: 0.60
+    min_margin: 0.15  # 第一名相对第二名的最小概率优势
+    confirm_hits: 3
+    switch_hits: 5  # 已确认身份切换所需的连续帧数
+  lost_target:
+    predict_seconds: 0.8  # 短时丢失使用真实 dt 卡尔曼外推，之后才进入盲区点
+
+calibration:
+  points_per_layer: 6  # 每个高度层的标定点数量，至少4；大于4时使用多点拟合
+  run_after_save: true  # 手动标定保存后自动启动 main.py；直接运行 main.py 可跳过重新标定
+
+recording:
+  fps: 20.0  # 录像时间轴与目标帧率
+  codec: 'h264_nvenc'  # 优先使用RTX硬件H.264；不可用时自动回退libx264/mp4v/MJPG
+  camera_max_width: 2560  # 4024x3036输入按比例录成2560x1932，给20 FPS保留编码余量
+  map_max_width: 1920  # 2800x1500地图按比例录成1920x1028
+  queue_size: 4  # 约0.2秒短缓冲，吸收编码抖动；满队列才计为真正的录像丢帧
+  max_catchup_seconds: 1.0  # 主循环偶发停顿时允许补齐时间轴，避免成片时长被压缩
+  prefer_external: true  # 优先写入已挂载、可写的外接块设备
+  external_directory: 'SHARK-radar-recordings'  # 外接硬盘中的录像根目录
+  default_root: 'save_img'  # 未检测到外接硬盘时使用的项目内默认目录
+  selected_root: '/media/robot/Ventoy/SHARK-radar-recordings'  # 启动台中操作者确认的实际录像根目录；留空时仍按外接硬盘优先自动选择
+
+projection:
+  # 定位投影点来源：
+  # car_bottom=车体检测框底部中心，更适合地图落点定位；
+  # armor_bottom=装甲板检测框下方，保留旧逻辑，适合车框不稳定时对比。
+  point_source: 'car_bottom'
+  car_x_ratio: 0.5
+  car_y_ratio: 0.92
+  armor_x_ratio: 0.5
+  armor_y_ratio: 1.5
+
+inference:
+  car_img_size: [640, 640]  # 车辆模型输入 [高, 宽]
+  armor_img_size: [1280, 1280]  # 装甲板模型输入 [高, 宽]，需与 armor.engine 一致
+  armor_canvas_size: [640, 640]  # 保持原 ROI 画布，推理前放大到 1280，使装甲板像素实际翻倍
+  armor_conf_threshold: 0.4  # 适度提高远距离/暗装甲板召回，后续仍需连续帧与颜色确认
+
+armor_selection:
+  # 每个车框ROI内装甲板的选择方式：
+  # center=选择最靠近车框中心的装甲板；confidence=保留原逻辑，选择置信度最高的装甲板。
+  mode: 'center'
+
+vehicle_color_hold:
+  enabled: true  # 灯色不明确时，沿用同一车辆最后一次可靠识别到的红/蓝阵营
+  confirmation_count: 3  # 同一灯条颜色连续出现该帧数后才确认；反色未达次数时保持原颜色
+  switch_confirmation_count: 5  # 已确认阵营切换为相反颜色所需的连续一致帧数
+  single_bar_confirmation_count: 5  # 仅识别到单侧灯条时需连续更多帧才确认
+  compact_pair_confirmation_count: 5  # 远距离双光点需连续更多帧才确认
+  model_only_confirmation_count: 5  # 灯不亮时高置信度模型颜色的连续确认帧数
+  model_only_min_confidence: 0.75  # 仅模型判断阵营时的最低置信度
+  model_only_max_conflicting_light_confidence: 0.4  # 更强的相反灯色会阻止模型兜底
+  require_model_agreement: true  # 装甲板模型与几何灯条颜色一致时才累计确认
+  min_saturation: 70  # HSV最低饱和度，过曝成白色的灯不会被当作可靠颜色
+  min_value: 55  # 兼容曝光较暗的灯条，仍需通过几何和连续帧检查
+  min_pixels: 4  # 适当放宽远距离小灯条的最少有效红/蓝像素数
+  dominance_ratio: 1.5  # 主色像素数至少为另一颜色的该倍数，才认为灯色明确
+  side_strip_ratio: 0.4  # 仅保留左右各40%灯区，中间20%数字区域在提取轮廓前清除
+  yellow_as_red: true  # 黄色灯条按红方处理
+  yellow_hue_min: 16  # 黄色在OpenCV HSV中的最小色相
+  yellow_hue_max: 40  # 黄色在OpenCV HSV中的最大色相
+  require_light_bar_pair: true  # 使用灯条几何约束；是否允许单灯条由下一项控制
+  allow_single_light_bar: true  # 遮挡或远距离时允许单侧细灯条作为弱证据
+  single_bar_confidence_scale: 0.55  # 单灯条置信度折减，避免弱证据压过完整双灯条
+  allow_compact_light_pair: true  # 极小装甲板允许左右对称光点代替细长灯条
+  compact_pair_max_armor_height: 16  # 仅在装甲板框高度不超过该像素时启用双光点规则
+  compact_pair_min_aspect_ratio: 1.0  # 小尺寸光点允许接近正方形
+  compact_pair_confidence_scale: 0.7  # 双光点证据相对正常双灯条的置信度折减
+  bar_min_aspect_ratio: 1.3  # 灯条最小长宽比
+  bar_min_height_ratio: 0.12  # 灯条长度至少占装甲板框高度的比例
+  bar_min_height_similarity: 0.4  # 左右灯条长度相似度下限
+  bar_max_y_offset_ratio: 0.8  # 左右灯条中心纵向偏差相对灯条长度的上限
+  bar_max_angle_difference: 35  # 左右灯条长轴方向允许的最大角度差
+  debug_overlay: false  # 调试时显示模型色、灯条色、置信度和有效灯条数量
+  max_center_distance: 120  # 跨帧匹配同一车辆的车框中心最大距离，单位像素
+  max_size_change_ratio: 0.5  # 同一车辆车框宽高允许的最大变化比例
+  min_box_iou: 0.3  # 当前框与原框的最小交并比，防止继承附近已消失车框的颜色
+  max_missed_frames: 1  # 仅允许相邻帧连续匹配；车框断帧后不再继承旧颜色
+
+armor_confirmation:
+  enabled: true
+  required_count: 3  # 同一车框连续识别到同一完整类别多少帧后才放行
+  max_center_distance: 120  # 跨帧匹配同一车框的中心点最大距离，单位像素
+  max_missed_frames: 3  # 车框短暂丢失后保留确认状态的帧数
+  allowed_numbers: [1, 2, 3, 4, 7]
+
+armor_duplicate:
+  enabled: true
+  scope: 'class'  # class=同颜色同数字去重，允许R1和B1同时存在；number=只按数字去重
+
+occlusion_hold:
+  enabled: true
+  max_hold_time: 3  # 遮挡后保持最后一次正确识别位置的最长秒数；0表示一直保持到再次正确识别
+
+temporary_death_hold:
+  enabled: true
+  max_center_distance: 80  # 车框中心偏移小于该像素值时认为还是同一辆车
+  max_size_change_ratio: 0.35  # 车框宽高变化比例小于该值时认为还是同一辆车
+  update_position_from_car_box: true  # 号码丢失但车框仍可匹配时，使用当前车框继续更新位置，避免冻结后跳变
+  box_lost_timeout: 3.0  # 号码丢失后如果车框也丢失，原地保持该秒数后取消标定
+
+referee_send:
+  correct_only: true  # 只发送已确认标定或仍在有效保持期内的车辆坐标
+
+serial: # 串口
+  port: '/dev/ttyUSB0'
+  baudrate: 115200
+  timeout: 1
+
+referee:
+  # 比赛默认通过同机 ROS2 与 shark-radar-radio 通信；仅显式选择 legacy_serial 才打开本项目串口。
+  transport: 'radio_ros'  # radio_ros / legacy_serial
+  telemetry_rate_hz: 20.0  # ROS2 内部同步；裁判 0x0305 仍由无线电侧独立限为 4.8 Hz
+
+filter:
+  type: 'hybrid_gated_kalman'  # 可选值：sliding_window/hybrid_gated_kalman(hybrid)
+  sliding_window:
+    window_size: 5  # 滑动窗口大小
+    max_inactive_time: 2.0 # 滤波器最大不活跃时间(秒)
+    threshold: 100000.0
+  hybrid_gated_kalman:
+    prefilter_window: 3  # 预滤波窗口，建议3-4
+    prefilter_mode: 'median'  # median/mean
+    max_inactive_time: 2.0
+    raw_jump_threshold: 120.0  # 原始观测跳变门限（像素）
+    pred_jump_threshold: 100.0  # 相对预测跳变门限（像素）
+    process_noise: 1e-5
+    measurement_noise: 1e-1
+
+filter_compare:
+  enabled: false  # true时启用影子对比滤波，不参与串口发送,仅用于调试展示
+  compare_type: 'hybrid_gated_kalman'  # auto/sliding_window/hybrid_gated_kalman
+  draw_on_map: true
+  show_delta_text: true
+
+paths:
+  # test_img: 'images/test1.jpg' # 测试图片
+  test_img: 'images/test_image.jpg' # 测试图片
+  calibration:
+    red: 'arrays_test_red.npy' # 加载标定好的仿射变换矩阵
+    blue: 'arrays_test_blue.npy'
+  map_images:
+    red: 'images-2026/red.jpg'  # 加载红方视角地图
+    blue: 'images-2026/blue.jpg'
+    mask: 'images-2026/map_mask26.jpg' # 加载落点判断掩码
+    backup: 'images-2026/image_2026.jpg'
+  models:
+    car: 'models/car.engine'
+    armor: 'models/armor.engine'
+    armor_batch: 'models/armor_batch.engine'  # 动态 batch 1..16；不存在时自动使用 4x4 静态拼图
+
+camera_params:
+  exposure_time: 11000.0  # 30ms，不限制满幅模式约29.26 FPS
+  gain: 1  # 增益值
+  # 多相机时填写目标相机序列号（与 MVS 枚举一致）；留空则默认使用枚举列表中的第一台（索引 0）
+  device_serial: 'DA4528776'
+
+blind_zone:
+  enabled: true  # 盲区预测开关
+  roles: [1, 2, 7]  # 仅这些对方角色允许进入盲区预报
+  base_time: 3.0  # 基础预测时间
+  offset_time: 1.7  # 时间偏移量(根据上一帧的信道占用数动态调整单点预测时间)
+  points:
+    R1: [[1091, 1087], [1014, 375]]  # (两个吊射点) [2645, 700](对面家，防英雄偷家)
+    R2: [[890, 748], [235, 105]]  # (银矿，兑矿区) [1336, 813](金矿)
+    R7: [[670, 758], [401, 815]]
+    B1: [[1706, 402], [1792, 1131]] # [85, 750]
+    B2: [[1906, 748], [2559, 1398]] # [1460, 688]
+    B7: [[2126, 755], [2400, 671]]
+
+double_vulnerability:
+  enabled: false  # 视觉端不再自主触发；后续双倍易伤决策统一由无线电程序负责
+  trigger_mode: 'disabled'  # 旧视觉策略保留仅供历史参考，不再参与比赛决策
+  stable_duration_s: 2.0  # 距离/运动条件需持续满足该时长(秒)才视为触发
+  # 运行 main 主程序（加载 config 后）起 startup_limit_window_s 秒内，双倍易伤至多请求 startup_limit_max_uses 次；0 表示不限制
+  startup_limit_window_s: 120.0
+  startup_limit_max_uses: 1
+  distance:
+    threshold: 2.5  # 距离阈值(米)
+  motion:
+    close_distance: 3.0  # 近距离阈值(米)，小于此距离直接触发
+    far_distance: 6.0  # 远距离阈值(米)，大于此距离不触发
+    approach_speed: 0.5  # 接近速度阈值(m/s)，双方相对接近速度
+    active_speed: 0.5  # 主动移动速度阈值(m/s)，己方向敌方移动的速度
+    min_speed: 0.3  # 最小移动速度(m/s)，低于此速度认为无明显运动
+
+ui:
+  info_panel_size: [420, 500]  # 信息面板尺寸
+  map_display_size: [900, 480]  # 地图显示尺寸
+  img_display_size: [980, 700] # 画面显示尺寸
+  show_armor_canvas: false  # 调试用ROI拼接画布；关闭可减少每帧复制、绘制和窗口刷新

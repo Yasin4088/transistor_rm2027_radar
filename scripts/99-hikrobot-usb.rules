@@ -1,0 +1,2 @@
+# Hikrobot USB3 Vision cameras (vendor ID 2bdf) require read/write access.
+SUBSYSTEM=="usb", ATTR{idVendor}=="2bdf", MODE:="0666"
