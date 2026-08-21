@@ -53,14 +53,14 @@ from calibration_presets import (
 
 import yaml
 
-# 切换到脚本所在目录，保证从任意目录启动时 config.yaml 都能被找到。（方便调试）
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
+# 切换到项目根目录，保证 config/config.yaml 及其中的相对路径（模型、图片、视频）都能被正确找到
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-with open("config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
+with open("config/config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
     config = yaml.safe_load(f)
 
 
-def update_config_state(selected_state, config_path="config.yaml"):
+def update_config_state(selected_state, config_path="config/config.yaml"):
     """Update global.state atomically while preserving the existing YAML comments."""
     if selected_state not in ('R', 'B'):
         raise ValueError(f"无效的己方阵营: {selected_state}")

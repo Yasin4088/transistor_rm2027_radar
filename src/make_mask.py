@@ -86,10 +86,10 @@ def create_irregular_mask(image_path):
     cv2.destroyAllWindows()
 
     # 保存掩码图像
-    cv2.imwrite("images-2026/map_mask26.jpg", mask_image)
-    print("Mask image saved as 'images-2026/map_mask26.jpg'.")
+    cv2.imwrite("images/map_mask26.jpg", mask_image)
+    print("Mask image saved as 'images/map_mask26.jpg'.")
 
 # 使用示例
 if __name__ == "__main__":
     # 替换为你的图像路径
-    create_irregular_mask("images-2026/blue.jpg")
+    create_irregular_mask("images/blue.jpg")

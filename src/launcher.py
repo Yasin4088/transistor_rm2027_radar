@@ -59,8 +59,8 @@ from recording_storage import suggest_recording_storage
 from runtime_status import clear_runtime_status, read_runtime_status
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-CONFIG_PATH = PROJECT_ROOT / "config.yaml"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
 REFEREE_FRESH_SECONDS = 2.0
 
 
@@ -851,7 +851,7 @@ class MatchLauncher(QMainWindow):
             return
 
         clear_runtime_status()
-        script_name = "calibration.py" if kind == "calibration" else "main.py"
+        script_name = "src/calibration.py" if kind == "calibration" else "main.py"
         self.process = QProcess(self)
         self.process_kind = kind
         self.process.setWorkingDirectory(str(PROJECT_ROOT))

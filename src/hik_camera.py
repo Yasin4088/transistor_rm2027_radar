@@ -1,12 +1,21 @@
+import os
 import sys
 import cv2
 from ctypes import *
 
+# SDK 绑定已移入项目根目录下的 tools/（MvImport / MvImport_Linux），按 __file__ 定位
+_TOOLS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools")
+if _TOOLS_DIR not in sys.path:
+    sys.path.append(_TOOLS_DIR)
+# 绑定文件内部使用顶层导入（from CameraParams_const import *），需把 SDK 目录本身也加入 sys.path
+_SDK_SUBDIR = "MvImport" if sys.platform.startswith("win") else "MvImport_Linux"
+_SDK_DIR = os.path.join(_TOOLS_DIR, _SDK_SUBDIR)
+if _SDK_DIR not in sys.path:
+    sys.path.append(_SDK_DIR)
+
 if sys.platform.startswith("win"):
-    sys.path.append("./MvImport")
     from MvImport.MvCameraControl_class import *
 else:
-    sys.path.append("./MvImport_Linux")
     from MvImport_Linux.MvCameraControl_class import *
 
 

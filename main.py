@@ -17,6 +17,11 @@ import string
 from collections import deque
 from pathlib import Path
 import serial
+# 项目目录规整后：业务模块在 src/，海康 SDK 绑定在 tools/，统一加入导入路径
+_HERE = Path(__file__).resolve().parent
+for _sub in ("src", "tools"):
+    if str(_HERE / _sub) not in sys.path:
+        sys.path.insert(0, str(_HERE / _sub))
 from camera_availability import wait_for_initial_camera_frame
 from information_ui import draw_information_ui
 import cv2
@@ -65,7 +70,7 @@ def _load_hik_sdk():
 # 切换到脚本所在目录，保证从任意目录启动（如 test1 别名）时，config.yaml 及其中的相对路径（模型、图片、视频）都能被正确找到。（方便调试）
 os.chdir(Path(__file__).resolve().parent)
 
-with open("config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
+with open("config/config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
     config = yaml.safe_load(f)
 
 _runtime_status_error_reported = False
@@ -1830,7 +1835,7 @@ if compare_enabled:
 # 加载模型，实例化机器人检测器和装甲板检测器 yolov5
 weights_path = config['paths']['models']['car']
 weights_path_next = config['paths']['models']['armor']
-detector = YOLOv5Detector(weights_path, img_size=car_img_size, data='yaml/car.yaml',
+detector = YOLOv5Detector(weights_path, img_size=car_img_size, data='config/car.yaml',
                           conf_thres=vehicle_low_confidence,
                           iou_thres=0.5, max_det=14, ui=True)
 detector_next = None
@@ -1840,7 +1845,7 @@ if algorithm_mode == 'hkust_tracker' and armor_batch_path and os.path.isfile(arm
     try:
         detector_next = YOLOv5Detector(
             armor_batch_path,
-            data='yaml/armor.yaml',
+            data='config/armor.yaml',
             conf_thres=armor_conf_threshold,
             iou_thres=0.2,
             img_size=(320, 320),
@@ -1855,7 +1860,7 @@ if algorithm_mode == 'hkust_tracker' and armor_batch_path and os.path.isfile(arm
         detector_next = None
         print(f"动态装甲板 batch 引擎加载失败，使用静态 4x4 拼图: {error}")
 if detector_next is None:
-    detector_next = YOLOv5Detector(weights_path_next, data='yaml/armor.yaml',
+    detector_next = YOLOv5Detector(weights_path_next, data='config/armor.yaml',
                                    conf_thres=armor_conf_threshold, iou_thres=0.2,
                                    img_size=armor_img_size,
                                    max_det=16 if algorithm_mode == 'hkust_tracker' else 10,

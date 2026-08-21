@@ -40,4 +40,4 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 cd "$PROJECT_ROOT"
-exec "$PYTHON_BIN" -u launcher.py "$@"
+exec "$PYTHON_BIN" -u src/launcher.py "$@"
