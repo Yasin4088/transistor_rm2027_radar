@@ -1,17 +1,17 @@
 global:
-  state: 'R'  # 己方颜色 R/B，由手动标定窗口的“对方阵营”选项自动更新
-  camera_mode: 'hik'  # 'test':测试模式,'hik':海康相机,'video':USB相机（videocapture）
+  state: 'B'  # 己方颜色 R/B，由手动标定窗口的“对方阵营”选项自动更新
+  camera_mode: 'test'  # 'test':测试模式,'hik':海康相机,'video':USB相机（videocapture）
   # 多车同时识别：true=本帧所有车 ROI 拼接批量装甲板识别；false=仅对置信度最高的一辆车走装甲板与滤波
   multi_car_recognition: true
   use_serial: false  # 兼容旧配置；实际通信方式由 referee.transport 决定
-  save_img: true  # 是否录制地图与相机识别视频（保留旧配置名）
+  save_img: false  # 是否录制地图与相机识别视频（保留旧配置名）
   map_size: [2800, 1500]  # 战场地图尺寸
 
   test:
     video_path: 'input_videos/test001.mp4'  # 测试视频（如果没有，留空即可，可自动回退到静态图片测试）
     loop: True  # 是否循环播放
     start_frame: 0  # 起始帧号
-    playback_speed: 0.5  # 播放速度（1.0=正常速度）
+    playback_speed: 1.0  # 播放速度（1.0=正常速度）
 
 # 算法总开关：legacy=2131aef 视觉识别链路；hkust_tracker=可选的新车辆跟踪链路
 algorithm:
@@ -184,7 +184,7 @@ paths:
 
 camera_params:
   exposure_time: 11000.0  # 30ms，不限制满幅模式约29.26 FPS
-  gain: 1.0  # 增益值
+  gain: 15.0  # 增益值
   # 多相机时填写目标相机序列号（与 MVS 枚举一致）；留空则默认使用枚举列表中的第一台（索引 0）
   device_serial: 'DA4528776'
 

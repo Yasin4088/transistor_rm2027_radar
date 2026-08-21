@@ -144,3 +144,5 @@ save_img/
 calibration_backup_*/
 models/engine_backup_*/
 .runtime/
+input_videos/**
+docs/

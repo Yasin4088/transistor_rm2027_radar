@@ -62,6 +62,9 @@ def _load_hik_sdk():
     ):
         globals()[name] = getattr(mv, name)
 
+# 切换到脚本所在目录，保证从任意目录启动（如 test1 别名）时，config.yaml 及其中的相对路径（模型、图片、视频）都能被正确找到。（方便调试）
+os.chdir(Path(__file__).resolve().parent)
+
 with open("config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
     config = yaml.safe_load(f)
 

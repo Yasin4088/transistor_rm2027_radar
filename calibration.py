@@ -52,6 +52,10 @@ from calibration_presets import (
 )
 
 import yaml
+
+# 切换到脚本所在目录，保证从任意目录启动时 config.yaml 都能被找到。（方便调试）
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 with open("config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
     config = yaml.safe_load(f)
 
