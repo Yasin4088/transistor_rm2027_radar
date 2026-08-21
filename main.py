@@ -441,11 +441,11 @@ def convert_projected_map_point(xy):
 
 def add_position_measurement(name, x, y, car_box=None, temporary_dead=False):
     update_occlusion_hold(name, x, y, car_box, temporary_dead)
-    if isinstance(filter, SlidingWindowFilter):
+    if isinstance(filter, SlidingWindowFilter):#这里两种端口一样
         filter.add_data(name, x, y)
     else:
         filter.add_data(name, x, y)
-    if compare_filter is not None:
+    if compare_filter is not None: #影子寄存器，对比滑动窗口与卡尔曼滤波
         compare_filter.add_data(name, x, y)
 
 
@@ -2525,7 +2525,7 @@ while not stop_requested:
         """按当前阵营state统一换算坐标，避免同帧出现两套坐标系。"""
         if state == 'R':
             map_xy = (2800 - xy[1], xy[0])
-        else:
+        else:                                           
             map_xy = (xy[1], 1500 - xy[0])
         ser_x = int(map_xy[0]) * 10 / 10
         ser_y = int(1500 - map_xy[1]) * 10 / 10
