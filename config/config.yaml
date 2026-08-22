@@ -8,7 +8,7 @@ global:
   map_size: [2800, 1500]  # 战场地图尺寸
 
   test:
-    video_path: 'input_videos/test001.mp4'  # 测试视频（如果没有，留空即可，可自动回退到静态图片测试）
+    video_path: 'input_videos/test001_resize.mp4'  # 测试视频（如果没有，留空即可，可自动回退到静态图片测试）
     loop: True  # 是否循环播放
     start_frame: 0  # 起始帧号
     playback_speed: 1.0  # 播放速度（1.0=正常速度）
