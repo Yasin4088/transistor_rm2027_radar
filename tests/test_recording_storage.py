@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from recording_storage import (
+from output.recording_storage import (
     allocate_match_directory,
     allocate_named_match_directory,
     discover_external_mounts,
@@ -213,7 +213,7 @@ class RecordingStorageTest(unittest.TestCase):
 
     def test_discovery_does_not_enumerate_dev_or_usb_bus(self):
         mountinfo = self._write_mountinfo([])
-        with mock.patch("recording_storage.Path.iterdir") as iterdir:
+        with mock.patch("output.recording_storage.Path.iterdir") as iterdir:
             discover_external_mounts(
                 mountinfo_path=mountinfo,
                 sys_dev_block=self.sys_dev_block,

@@ -38,7 +38,7 @@ def main() -> int:
         shutil.copy2(weights, temporary_weights)
         command = [
             sys.executable,
-            str(PROJECT_ROOT / "src" / "export.py"),
+            str(PROJECT_ROOT / "src" / "detect" / "export.py"),
             "--weights", str(temporary_weights),
             "--data", str(PROJECT_ROOT / "config" / "armor.yaml"),
             "--include", "engine",

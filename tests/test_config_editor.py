@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from config_editor import load_config, update_config_values
+from ui.config_editor import load_config, update_config_values
 
 
 SAMPLE_CONFIG = """global:

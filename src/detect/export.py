@@ -61,7 +61,7 @@ import torch
 from torch.utils.mobile_optimizer import optimize_for_mobile
 
 FILE = Path(__file__).resolve()
-ROOT = FILE.parents[1]  # 项目根目录（export.py 已移入 src/，向上两级；models/、utils/ 位于根目录）
+ROOT = FILE.parents[2]  # 项目根目录（export.py 已移入 src/detect/，向上三级；models/、utils/ 位于根目录）
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 if platform.system() != 'Windows':

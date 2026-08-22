@@ -22,26 +22,26 @@ _HERE = Path(__file__).resolve().parent
 for _sub in ("src", "tools"):
     if str(_HERE / _sub) not in sys.path:
         sys.path.insert(0, str(_HERE / _sub))
-from camera_availability import wait_for_initial_camera_frame
-from information_ui import draw_information_ui
+from capture.camera_availability import wait_for_initial_camera_frame
+from ui.information_ui import draw_information_ui
 import cv2
 import numpy as np
-from detect_function import YOLOv5Detector
-from frame_rate import RecentFrameRate
+from detect.detect_function import YOLOv5Detector
+from capture.frame_rate import RecentFrameRate
 from RM_serial_py.ser_api import build_send_packet, receive_packet, Radar_decision, \
     build_data_decision, build_data_radar_all, generate_random_password
-from runtime_status import initialize_runtime_status, update_runtime_status
-from referee_transport import RefereeTransport, normalize_transport_mode
-from recording_storage import prepare_match_recording_directory
-from vision_telemetry import build_vision_telemetry, classify_legacy_target_names
-from video_recorder import AsyncMatchVideoRecorder
-from vehicle_color import VehicleColorMemory, analyze_armor_light_color
+from output.runtime_status import initialize_runtime_status, update_runtime_status
+from output.referee_transport import RefereeTransport, normalize_transport_mode
+from output.recording_storage import prepare_match_recording_directory
+from output.vision_telemetry import build_vision_telemetry, classify_legacy_target_names
+from output.video_recorder import AsyncMatchVideoRecorder
+from detect.vehicle_color import VehicleColorMemory, analyze_armor_light_color
 import yaml
 
 
 def _load_hik_sdk():
     """Load Hikvision SDK only when hik camera mode is actually used."""
-    from hik_camera import get_Value, hik_device_serial, image_control, select_hik_device_index, set_Value, \
+    from capture.hik_camera import get_Value, hik_device_serial, image_control, select_hik_device_index, set_Value, \
         start_grab_and_get_data_size
 
     if sys.platform.startswith("linux"):
@@ -133,8 +133,8 @@ if algorithm_mode not in ('hkust_tracker', 'legacy'):
     print(f"未知算法模式 {algorithm_mode}，已回退到 legacy（2131aef 视觉链路）")
     algorithm_mode = 'legacy'
 if algorithm_mode == 'hkust_tracker':
-    from tracking import TrackedRadarPipeline
-    from tracking.types import TargetState
+    from detect.tracking import TrackedRadarPipeline
+    from detect.tracking.types import TargetState
 tracked_targets_lock = threading.Lock()
 tracked_targets = {}
 multi_car_recognition = bool(config.get('global', {}).get('multi_car_recognition', True))

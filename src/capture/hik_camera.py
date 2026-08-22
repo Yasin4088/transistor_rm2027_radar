@@ -4,7 +4,7 @@ import cv2
 from ctypes import *
 
 # SDK 绑定已移入项目根目录下的 tools/（MvImport / MvImport_Linux），按 __file__ 定位
-_TOOLS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools")
+_TOOLS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tools")
 if _TOOLS_DIR not in sys.path:
     sys.path.append(_TOOLS_DIR)
 # 绑定文件内部使用顶层导入（from CameraParams_const import *），需把 SDK 目录本身也加入 sys.path

@@ -8,6 +8,12 @@ import os
 import re
 import sys
 
+# 本文件以脚本方式（python src/calibration/calibration.py）被启动台拉起，sys.path[0] 是 src/calibration/，
+# 需显式把 src/ 加入导入路径，才能解析 calibration.calibration_presets / capture.hik_camera 等包
+_SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
 
 def _force_pyqt5_qt_plugin_path():
     """将 QT_QPA_PLATFORM_PLUGIN_PATH 指向当前环境内 PyQt5/Qt5/plugins。"""
@@ -41,7 +47,7 @@ from PyQt5.QtWidgets import (
     QMenu, QMessageBox, QPushButton, QRadioButton, QTextEdit, QVBoxLayout, QWidget,
 )
 
-from calibration_presets import (
+from calibration.calibration_presets import (
     DEFAULT_PRESET_PATH,
     PRESET_ENVIRONMENT_VARIABLE,
     CalibrationPresetError,
@@ -54,7 +60,8 @@ from calibration_presets import (
 import yaml
 
 # 切换到项目根目录，保证 config/config.yaml 及其中的相对路径（模型、图片、视频）都能被正确找到
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# （本文件位于 src/calibration/ 下，向上三级才是项目根）
+os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 with open("config/config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
     config = yaml.safe_load(f)
@@ -115,7 +122,7 @@ def update_config_state(selected_state, config_path="config/config.yaml"):
 
 def _load_hik_sdk():
     """Only load Hikvision SDK when hik camera mode is used."""
-    from hik_camera import get_Value, hik_device_serial, image_control, select_hik_device_index, set_Value, \
+    from capture.hik_camera import get_Value, hik_device_serial, image_control, select_hik_device_index, set_Value, \
         start_grab_and_get_data_size
 
     if sys.platform.startswith("win"):

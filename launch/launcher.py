@@ -20,6 +20,10 @@ def _force_pyqt5_qt_plugin_path():
 
 _force_pyqt5_qt_plugin_path()
 
+# 本文件已从 src/ 移至 launch/，项目模块按四阶段包组织在 src/ 下，启动前把 src/ 加入导入路径
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
 from serial.tools import list_ports
 
 from PyQt5.QtCore import QProcess, QProcessEnvironment, QSize, Qt, QTimer
@@ -48,18 +52,17 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from calibration_presets import (
+from calibration.calibration_presets import (
     DEFAULT_PRESET_PATH,
     PRESET_ENVIRONMENT_VARIABLE,
     CalibrationPresetError,
     list_presets,
 )
-from config_editor import load_config, update_config_values
-from recording_storage import suggest_recording_storage
-from runtime_status import clear_runtime_status, read_runtime_status
+from ui.config_editor import load_config, update_config_values
+from output.recording_storage import suggest_recording_storage
+from output.runtime_status import clear_runtime_status, read_runtime_status
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
 REFEREE_FRESH_SECONDS = 2.0
 
@@ -851,7 +854,7 @@ class MatchLauncher(QMainWindow):
             return
 
         clear_runtime_status()
-        script_name = "src/calibration.py" if kind == "calibration" else "main.py"
+        script_name = "src/calibration/calibration.py" if kind == "calibration" else "main.py"
         self.process = QProcess(self)
         self.process_kind = kind
         self.process.setWorkingDirectory(str(PROJECT_ROOT))

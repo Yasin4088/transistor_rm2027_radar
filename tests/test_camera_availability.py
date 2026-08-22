@@ -1,6 +1,6 @@
 import unittest
 
-from camera_availability import wait_for_initial_camera_frame
+from capture.camera_availability import wait_for_initial_camera_frame
 
 
 class CameraAvailabilityTest(unittest.TestCase):

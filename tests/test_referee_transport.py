@@ -2,8 +2,8 @@ import json
 import time
 import unittest
 
-from referee_transport import RadioRosTransport, normalize_transport_mode
-from vision_telemetry import build_vision_telemetry, classify_legacy_target_names
+from output.referee_transport import RadioRosTransport, normalize_transport_mode
+from output.vision_telemetry import build_vision_telemetry, classify_legacy_target_names
 
 
 class FakeString:

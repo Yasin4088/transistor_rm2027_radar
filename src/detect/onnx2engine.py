@@ -1,6 +1,15 @@
 import platform
+import sys
+from pathlib import Path
 
-from export import export_onnx
+# 自举：本文件以模块级执行（无 __main__ 守卫），需要项目根（utils/）与 src/（detect.export）在导入路径上
+_FILE = Path(__file__).resolve()
+_ROOT = _FILE.parents[2]  # 项目根目录
+for _path in (_ROOT, _ROOT / "src"):
+    if str(_path) not in sys.path:
+        sys.path.append(str(_path))
+
+from detect.export import export_onnx
 from utils.general import (LOGGER, check_requirements, check_version,
                            colorstr)
 

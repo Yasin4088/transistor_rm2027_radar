@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]  # src/ — 保留 .runtime 状态目录位置（本模块已移入 src/output/）
 STATUS_PATH = PROJECT_ROOT / ".runtime" / "radar_status.json"
 _STATUS_LOCK = threading.Lock()
 

@@ -6,7 +6,7 @@ import ctypes
 import os
 
 from ctypes import *
-from mvs_runtime import configure_mvs_runtime
+from capture.mvs_runtime import configure_mvs_runtime
 from CameraParams_const import *
 from CameraParams_header import *
 from MvErrorDefine_const import *

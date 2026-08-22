@@ -8,7 +8,7 @@ from unittest import mock
 import cv2
 import numpy as np
 
-from video_recorder import AsyncMatchVideoRecorder, MatchVideoRecorder
+from output.video_recorder import AsyncMatchVideoRecorder, MatchVideoRecorder
 
 
 class MatchVideoRecorderTest(unittest.TestCase):

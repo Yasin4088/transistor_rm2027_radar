@@ -8,7 +8,7 @@ from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence, 
 import cv2
 import numpy as np
 
-from vehicle_color import VehicleColorMemory, analyze_armor_light_color
+from detect.vehicle_color import VehicleColorMemory, analyze_armor_light_color
 
 from .roi_batch import find_transform_for_box, make_letterboxed_roi, pack_tiles
 from .tracker import IdentityManager, VehicleTrack, VehicleTracker
