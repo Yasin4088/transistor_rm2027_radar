@@ -51,7 +51,7 @@ recording:
   prefer_external: true  # 优先写入已挂载、可写的外接块设备
   external_directory: 'Transistor-radar-recordings'  # 外接硬盘中的录像根目录
   default_root: 'save_img'  # 未检测到外接硬盘时使用的项目内默认目录
-  selected_root: '/media/robot/Ventoy/Transistor-radar-recordings'  # 启动台中操作者确认的实际录像根目录；留空时仍按外接硬盘优先自动选择
+  selected_root: '/home/robot/transistor_rm2027_radar/save_img'  # 启动台中操作者确认的实际录像根目录；留空时仍按外接硬盘优先自动选择
 
 projection:
   # 定位投影点来源：
