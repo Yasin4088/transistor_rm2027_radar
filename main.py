@@ -660,7 +660,7 @@ if double_vulnerability_enabled and trigger_mode in ['motion', 'both']:
     motion_params = _dv_cfg['motion']
 
 # 盲区预测用：位置历史（无条件初始化，独立于双倍易伤开关）
-if 'robot_position_history' not in locals():
+if 'robot_position_history' not in globals():
     robot_position_history = {}
     for robot in ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']:
         robot_position_history[robot] = deque(maxlen=5)
@@ -1681,16 +1681,16 @@ def ser_send():
                 else:
                     distance_condition_true_since = None
             
+            # 更新机器人位置历史（盲区预测打分用；独立于双倍易伤开关）
+            current_time = time.time()
+            for robot_id in send_map:
+                pos = send_map[robot_id]
+                # 只记录真实检测到的位置
+                if pos != (0, 0) and not guess_list.get(robot_id, True):
+                    robot_position_history[robot_id].append((current_time, pos))
+
             # 策略2：基于运动趋势的触发
             if double_vulnerability_enabled and trigger_mode in ['motion', 'both']:
-                # 更新机器人位置历史（用于运动趋势分析）
-                current_time = time.time()
-                for robot_id in send_map:
-                    pos = send_map[robot_id]
-                    # 只记录真实检测到的位置
-                    if pos != (0, 0) and not guess_list.get(robot_id, True):
-                        robot_position_history[robot_id].append((current_time, pos))
-                
                 motion_trigger_now = check_motion_trend_trigger()
                 now_stable = time.time()
                 if motion_trigger_now:
