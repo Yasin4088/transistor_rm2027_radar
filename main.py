@@ -21,6 +21,7 @@ from camera_availability import wait_for_initial_camera_frame
 from information_ui import draw_information_ui
 import cv2
 import numpy as np
+import open3d as o3d
 from detect_function import YOLOv5Detector
 from frame_rate import RecentFrameRate
 from RM_serial_py.ser_api import build_send_packet, receive_packet, Radar_decision, \
@@ -409,24 +410,15 @@ def _same_car_box(car_box, cached_box):
 
 
 def project_image_point_to_map(point_x, point_y):
+    """像素 → 场地坐标（3D 射线求交，替代原双层仿射）"""
+    if pixel_to_world is None:
+        return point_x, point_y  # 未初始化时降级
     point_x = min(max(point_x, 0), img_x)
     point_y = min(max(point_y, 0), img_y)
-    camera_point = np.array([[[point_x, point_y]]], dtype=np.float32)
-    mapped_point = cv2.perspectiveTransform(camera_point.reshape(1, 1, 2), M_ground)
-    x_c = max(int(mapped_point[0][0][0]), 0)
-    y_c = max(int(mapped_point[0][0][1]), 0)
-    x_c = min(x_c, width)
-    y_c = min(y_c, height)
-    color = mask_image[y_c, x_c]
-    if color[0] == color[1] == color[2] == 0:
-        return x_c, y_c
-
-    mapped_point = cv2.perspectiveTransform(camera_point.reshape(1, 1, 2), M_height_r)
-    x_c = max(int(mapped_point[0][0][0]), 0)
-    y_c = max(int(mapped_point[0][0][1]), 0)
-    x_c = min(x_c, width)
-    y_c = min(y_c, height)
-    return x_c, y_c
+    world = pixel_to_world((point_x, point_y))
+    if world is None:
+        return point_x, point_y
+    return world[0], world[1]
 
 
 def convert_projected_map_point(xy):
@@ -519,9 +511,15 @@ else:
 mask_image = cv2.imread(config['paths']['map_images']['mask'])
 map_backup = cv2.imread(config['paths']['map_images']['backup'])
 
-# 导入战场每个高度的不同仿射变化矩阵
-M_ground = loaded_arrays[0]  # 地面层、公路层
-M_height_r = loaded_arrays[1]  # 中央高地
+# 3D 射线定位（替代原双层仿射 M_ground/M_height_r）
+pixel_to_world = None
+try:
+    from raycast import PixelToWorld, build_pixel_to_world_from_npz
+    _mesh = o3d.io.read_triangle_mesh(config['paths']['mesh_path'])
+    pixel_to_world = build_pixel_to_world_from_npz(config['paths']['intrinsics_path'], _mesh)
+    print(f"3D 射线定位已启用, mesh: {config['paths']['mesh_path']}")
+except Exception as e:
+    print(f"3D 射线定位初始化失败，降级为像素坐标: {e}")
 
 # 确定地图画面像素，保证不会溢出
 height, width = mask_image.shape[:2]
@@ -2475,29 +2473,7 @@ while not stop_requested:
             point_y = min(max(point_y, 0), img_y)
             cv2.circle(img0, (int(point_x), int(point_y)), 6, (0, 255, 255), -1)
             # 原图中的车体落点/装甲板锚点作为待仿射变化的点
-            camera_point = np.array([[[point_x, point_y]]], dtype=np.float32)
-            # 先套用地面层仿射变化矩阵
-            mapped_point = cv2.perspectiveTransform(camera_point.reshape(1, 1, 2), M_ground)
-            x_c = max(int(mapped_point[0][0][0]), 0)
-            y_c = max(int(mapped_point[0][0][1]), 0)
-            x_c = min(x_c, width)
-            y_c = min(y_c, height)
-            color = mask_image[y_c, x_c]  # 通过掩码图像，获取地面层的颜色：黑（0，0，0）
-            if color[0] == color[1] == color[2] == 0:
-                X_M = x_c
-                Y_M = y_c
-                # Z_M = 0
-            else:
-                # 不满足则继续套用R型高地层仿射变换矩阵
-                mapped_point = cv2.perspectiveTransform(camera_point.reshape(1, 1, 2), M_height_r)
-                x_c = max(int(mapped_point[0][0][0]), 0)
-                y_c = max(int(mapped_point[0][0][1]), 0)
-                x_c = min(x_c, width)
-                y_c = min(y_c, height)
-                color = mask_image[y_c, x_c]  # 通过掩码图像，获取R型高地层的颜色：绿（0，255，0）
-                X_M = x_c
-                Y_M = y_c
-                # Z_M = 400
+            X_M, Y_M = project_image_point_to_map(point_x, point_y)
             recognized_names.add(best_cls)
             measured_names.add(best_cls)
             add_position_measurement(best_cls, X_M, Y_M, (left, top, car_w, car_h))

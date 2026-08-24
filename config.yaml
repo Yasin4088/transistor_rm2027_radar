@@ -1,6 +1,6 @@
 global:
   state: 'R'  # 己方颜色 R/B，由手动标定窗口的“对方阵营”选项自动更新
-  camera_mode: 'hik'  # 'test':测试模式,'hik':海康相机,'video':USB相机（videocapture）
+  camera_mode: 'test'  # 'test':测试模式,'hik':海康相机,'video':USB相机（videocapture）
   # 多车同时识别：true=本帧所有车 ROI 拼接批量装甲板识别；false=仅对置信度最高的一辆车走装甲板与滤波
   multi_car_recognition: true
   use_serial: false  # 兼容旧配置；实际通信方式由 referee.transport 决定
@@ -177,6 +177,8 @@ paths:
     blue: 'images-2026/blue.jpg'
     mask: 'images-2026/map_mask26.jpg' # 加载落点判断掩码
     backup: 'images-2026/image_2026.jpg'
+  mesh_path: '/home/elysia/robomaster/RM2025-Radar-Algorithm/field/RMUC2025_National.PLY'  # 3D 场地 mesh
+  intrinsics_path: 'camera_intrinsics.npz'  # 相机内参标定结果（棋盘格标定生成）
   models:
     car: 'models/car.engine'
     armor: 'models/armor.engine'
