@@ -659,6 +659,12 @@ if double_vulnerability_enabled and trigger_mode in ['motion', 'both']:
     # 读取运动趋势相关参数
     motion_params = _dv_cfg['motion']
 
+# 盲区预测用：位置历史（无条件初始化，独立于双倍易伤开关）
+if 'robot_position_history' not in locals():
+    robot_position_history = {}
+    for robot in ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']:
+        robot_position_history[robot] = deque(maxlen=5)
+
 # 加载战场地图
 map = map_backup.copy()
 
@@ -720,6 +726,11 @@ mapping_table = {
 guess_table = {}
 for robot, points in config['blind_zone']['points'].items():
     guess_table[robot] = [tuple(point) for point in points]
+
+# 盲区预测打分参数（照 HKUST guess_pts.py）
+guess_velocity_scoring = bool(config.get('blind_zone', {}).get('velocity_scoring', True))
+guess_cos_factor = float(config.get('blind_zone', {}).get('cos_factor', 0.003))
+guess_d_factor = float(config.get('blind_zone', {}).get('d_factor', 0.01))
 
 
 class MotionKalman2D:
@@ -1230,9 +1241,35 @@ def ser_send():
         return ser_x, ser_y
 
     # 发送盲区预测点坐标
+    def score_guess_points(send_name, last_pos, vel):
+        """按速度方向+距离给预设点打分（照 HKUST guess_pts.py predict_points）
+        score = cos_factor*余弦相似度(速度方向,指向点方向) + (1-cos_factor)*exp(-距离*d_factor)
+        """
+        cos_factor = guess_cos_factor
+        d_factor = guess_d_factor
+        best_point, best_score = None, -1e9
+        for point in guess_table.get(send_name, []):
+            d_vec = (point[0] - last_pos[0], point[1] - last_pos[1])
+            dot = vel[0] * d_vec[0] + vel[1] * d_vec[1]
+            v_norm = np.sqrt(vel[0] ** 2 + vel[1] ** 2) + 1e-8
+            d_norm = np.sqrt(d_vec[0] ** 2 + d_vec[1] ** 2) + 1e-8
+            cos_sim = dot / (v_norm * d_norm)
+            d_score = np.exp(-d_norm * d_factor)
+            score = cos_factor * cos_sim + (1 - cos_factor) * d_score
+            if score > best_score:
+                best_score, best_point = score, point
+        return best_point
+
     def send_point_guess(send_name, guess_time_limit):
-        # front_time = time.time()
-        # print(guess_value_now.get(send_name),guess_value.get(send_name) ,guess_index[send_name])
+        # 有速度信息：按速度方向打分选点（HKUST 方式）
+        if guess_velocity_scoring and send_name in robot_position_history and len(robot_position_history[send_name]) >= 2:
+            last_pos = robot_position_history[send_name][-1][1]
+            vel = calculate_velocity(robot_position_history[send_name])
+            if vel is not None:
+                scored = score_guess_points(send_name, last_pos, vel)
+                if scored is not None:
+                    return scored[0], scored[1]
+        # 无速度/关闭打分：原双点轮换兜底（进度反馈切换）
         # 进度未满 and 预测进度没有涨 and 超过单点预测时间上限，同时满足则切换另一个点预测
         if guess_value_now.get(send_name) < 120 and guess_value_now.get(send_name) - guess_value.get(
                 send_name) <= 0 and time.time() - guess_time.get(send_name) >= guess_time_limit:
