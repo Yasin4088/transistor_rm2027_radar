@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=TRANSISTOR Radar Match Console
+Name[zh_CN]=TRANSISTOR 雷达比赛启动台
+Comment=Configure, calibrate, and start the TRANSISTOR radar system
+Comment[zh_CN]=配置、标定并启动 TRANSISTOR 雷达比赛系统
+Exec="@START_SCRIPT@"
+TryExec=@START_SCRIPT@
+Path=@PROJECT_ROOT@
+Terminal=false
+StartupNotify=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=2
+Categories=Utility;

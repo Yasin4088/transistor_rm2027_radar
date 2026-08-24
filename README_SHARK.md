@@ -112,7 +112,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 ```bash
 # 车辆模型与静态装甲板模型
-python3 onnx2engine.py
+python3 src/detect/onnx2engine.py
 
 # 可选：动态 batch 装甲板引擎（min=1, opt=8, max=16 @ 320x320）
 python3 scripts/build_armor_batch_engine.py \
@@ -141,17 +141,17 @@ python3 scripts/build_armor_batch_engine.py \
 
 ```bash
 ./scripts/start_launcher.sh    # 推荐。加载 ROS 与 MVS 环境后启动 Qt 启动台
-python3 launcher.py            # 直接起启动台（需自己保证环境变量已就绪）
+python3 launch/launcher.py     # 直接起启动台（需自己保证环境变量已就绪）
 python3 main.py                # 跳过启动台与标定，直接用现有配置和标定文件比赛
-python3 calibration.py         # 单独进标定
-python3 config_editor.py       # 单独改配置
+python3 src/calibration/calibration.py   # 单独进标定
+python3 src/ui/config_editor.py          # 单独改配置
 ```
 
 比赛用 `start_launcher.sh`。`main.py` 适合标定没变、只是重启程序的情况 — 前提是 `calibration.run_after_save` 之前已经存过标定文件。
 
 ## 6 功能详解：Qt 比赛启动台
 
-`launcher.py`。赛前所有操作都在这一个窗口完成。
+`launch/launcher.py`。赛前所有操作都在这一个窗口完成。
 
 ### 6.1 相机状态
 
@@ -179,14 +179,14 @@ python3 config_editor.py       # 单独改配置
 ### 6.4 三个动作按钮
 
 - **保存比赛配置** — 把窗口里的设置写回 `config.yaml`。会校验录像路径确实是个目录。
-- **开始标定** — 拉起 `calibration.py`。
+- **开始标定** — 拉起 `src/calibration/calibration.py`。
 - **启动比赛主程序** — 拉起 `main.py`。
 
 标定或比赛进程在跑时不能重复启动，会提示先停止当前程序。
 
 ## 7 功能详解：手动标定
 
-`calibration.py`。左边相机画面，右边赛场地图，两边成对点击建立对应关系。
+`src/calibration/calibration.py`。左边相机画面，右边赛场地图，两边成对点击建立对应关系。
 
 ### 7.1 双层标定
 
@@ -273,45 +273,53 @@ python3 -m pytest tests -v
 辅助工具：
 
 ```bash
-python3 camera_availability.py     # 检查相机能否出图
-python3 make_mask.py               # 生成落点判断掩码
-python3 frame_rate.py              # 帧率统计
+python3 src/capture/camera_availability.py   # 检查相机能否出图
+python3 src/detect/make_mask.py               # 生成落点判断掩码
+python3 src/capture/frame_rate.py             # 帧率统计
 ```
 
 ## 12 文件结构
 
 ```
-shark-radar-vision/
-├── launcher.py                 # Qt 比赛启动台
+transistor_rm2027_radar/
 ├── main.py                     # 比赛主程序
-├── calibration.py              # 手动标定（双层仿射）
-├── calibration_presets.py      # 地图预制方案管理
-├── config_editor.py            # 配置编辑器
-├── config.yaml                 # 全部运行参数
-├── detect_function.py          # YOLOv5 TensorRT 推理封装
-├── vehicle_color.py            # 灯条颜色分析与阵营保持
-├── hik_camera.py               # 海康相机控制
-├── mvs_runtime.py              # MVS SDK 运行时定位
-├── camera_availability.py      # 相机可用性检查
-├── referee_transport.py        # radio_ros / legacy_serial 双通道
-├── vision_telemetry.py         # 目标遥测组装
-├── runtime_status.py           # 运行时状态上报
-├── video_recorder.py           # 异步双路录像
-├── recording_storage.py        # 外接盘优先的录像目录选择
-├── information_ui.py           # 信息面板绘制
-├── onnx2engine.py              # ONNX → TensorRT 引擎
-├── export.py                   # YOLOv5 导出（上游）
-├── make_mask.py                # 落点掩码生成
-├── tracking/                   # 可选的轨迹中心链路
-│   ├── pipeline.py             # 链路编排
-│   ├── tracker.py              # 车辆轨迹管理
-│   ├── kalman.py               # 卡尔曼滤波
-│   └── roi_batch.py            # ROI 批量拼接
+├── launch/
+│   └── launcher.py             # Qt 比赛启动台
+├── config/
+│   └── config.yaml             # 全部运行参数
+├── src/
+│   ├── capture/                # 取图
+│   │   ├── hik_camera.py       # 海康相机控制
+│   │   ├── mvs_runtime.py      # MVS SDK 运行时定位
+│   │   ├── camera_availability.py  # 相机可用性检查
+│   │   └── frame_rate.py       # 帧率统计
+│   ├── detect/                 # 检测识别
+│   │   ├── detect_function.py  # YOLOv5 TensorRT 推理封装
+│   │   ├── vehicle_color.py    # 灯条颜色分析与阵营保持
+│   │   ├── make_mask.py        # 落点掩码生成
+│   │   ├── export.py           # YOLOv5 导出（上游）
+│   │   ├── onnx2engine.py      # ONNX → TensorRT 引擎
+│   │   └── tracking/           # 可选的轨迹中心链路
+│   │       ├── pipeline.py     # 链路编排
+│   │       ├── tracker.py      # 车辆轨迹管理
+│   │       ├── kalman.py       # 卡尔曼滤波
+│   │       └── roi_batch.py    # ROI 批量拼接
+│   ├── output/                 # 输出
+│   │   ├── referee_transport.py    # radio_ros / legacy_serial 双通道
+│   │   ├── vision_telemetry.py     # 目标遥测组装
+│   │   ├── runtime_status.py       # 运行时状态上报
+│   │   ├── video_recorder.py       # 异步双路录像
+│   │   └── recording_storage.py    # 外接盘优先的录像目录选择
+│   ├── ui/                     # UI
+│   │   ├── information_ui.py   # 信息面板绘制
+│   │   └── config_editor.py    # 配置编辑器
+│   └── calibration/            # 手动标定
+│       ├── calibration.py      # 手动标定（双层仿射）
+│       └── calibration_presets.py  # 地图预制方案管理
 ├── RM_serial_py/               # 裁判系统串口协议
 ├── models/                     # car / armor / armor_batch 的 pt/onnx/engine
-├── images-2026/                # 2026 赛场地图与掩码
-├── yaml/                       # 模型结构定义
-├── utils/ · MvImport*/         # YOLOv5 工具链 · 海康 SDK 绑定
+├── images/                     # 2026 赛场地图与掩码
+├── utils/ · tools/MvImport*/   # YOLOv5 工具链 · 海康 SDK 绑定
 ├── scripts/
 │   ├── start_launcher.sh           # 推荐启动入口
 │   ├── build_armor_batch_engine.py # 动态 batch 引擎构建

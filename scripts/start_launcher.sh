@@ -40,4 +40,6 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 cd "$PROJECT_ROOT"
-exec "$PYTHON_BIN" -u launcher.py "$@"
+# 项目模块按四阶段包组织在 src/ 下（capture/detect/output/ui/calibration），供启动台及其子进程解析
+export PYTHONPATH="$PROJECT_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+exec "$PYTHON_BIN" -u launch/launcher.py "$@"

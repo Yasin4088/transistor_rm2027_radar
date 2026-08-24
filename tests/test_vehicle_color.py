@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from vehicle_color import (
+from detect.vehicle_color import (
     VehicleColorMemory,
     analyze_armor_light_color,
     detect_armor_light_color,

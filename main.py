@@ -17,27 +17,32 @@ import string
 from collections import deque
 from pathlib import Path
 import serial
-from camera_availability import wait_for_initial_camera_frame
-from information_ui import draw_information_ui
+# 项目目录规整后：业务模块在 src/，海康 SDK 绑定在 tools/，统一加入导入路径
+_HERE = Path(__file__).resolve().parent
+for _sub in ("src", "tools"):
+    if str(_HERE / _sub) not in sys.path:
+        sys.path.insert(0, str(_HERE / _sub))
+from capture.camera_availability import wait_for_initial_camera_frame
+from ui.information_ui import draw_information_ui
 import cv2
 import numpy as np
 import open3d as o3d
-from detect_function import YOLOv5Detector
-from frame_rate import RecentFrameRate
+from detect.detect_function import YOLOv5Detector
+from capture.frame_rate import RecentFrameRate
 from RM_serial_py.ser_api import build_send_packet, receive_packet, Radar_decision, \
     build_data_decision, build_data_radar_all, generate_random_password
-from runtime_status import initialize_runtime_status, update_runtime_status
-from referee_transport import RefereeTransport, normalize_transport_mode
-from recording_storage import prepare_match_recording_directory
-from vision_telemetry import build_vision_telemetry, classify_legacy_target_names
-from video_recorder import AsyncMatchVideoRecorder
-from vehicle_color import VehicleColorMemory, analyze_armor_light_color
+from output.runtime_status import initialize_runtime_status, update_runtime_status
+from output.referee_transport import RefereeTransport, normalize_transport_mode
+from output.recording_storage import prepare_match_recording_directory
+from output.vision_telemetry import build_vision_telemetry, classify_legacy_target_names
+from output.video_recorder import AsyncMatchVideoRecorder
+from detect.vehicle_color import VehicleColorMemory, analyze_armor_light_color
 import yaml
 
 
 def _load_hik_sdk():
     """Load Hikvision SDK only when hik camera mode is actually used."""
-    from hik_camera import get_Value, hik_device_serial, image_control, select_hik_device_index, set_Value, \
+    from capture.hik_camera import get_Value, hik_device_serial, image_control, select_hik_device_index, set_Value, \
         start_grab_and_get_data_size
 
     if sys.platform.startswith("linux"):
@@ -63,7 +68,10 @@ def _load_hik_sdk():
     ):
         globals()[name] = getattr(mv, name)
 
-with open("config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
+# 切换到脚本所在目录，保证从任意目录启动（如 test1 别名）时，config.yaml 及其中的相对路径（模型、图片、视频）都能被正确找到。（方便调试）
+os.chdir(Path(__file__).resolve().parent)
+
+with open("config/config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编码
     config = yaml.safe_load(f)
 
 _runtime_status_error_reported = False
@@ -97,7 +105,7 @@ referee_mode = normalize_transport_mode(config.get('referee', {}).get('transport
 telemetry_rate_hz = min(max(float(config.get('referee', {}).get('telemetry_rate_hz', 20.0)), 1.0), 30.0)
 serial_requested = referee_mode == 'legacy_serial'
 referee_transport = None
-match_run_id = str(os.environ.get('SHARK_MATCH_RUN_ID', '') or '').strip()
+match_run_id = str(os.environ.get('TRANSISTOR_MATCH_RUN_ID', '') or '').strip()
 if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,87}', match_run_id):
     match_run_id = f"vision_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
 try:
@@ -126,8 +134,8 @@ if algorithm_mode not in ('hkust_tracker', 'legacy'):
     print(f"未知算法模式 {algorithm_mode}，已回退到 legacy（2131aef 视觉链路）")
     algorithm_mode = 'legacy'
 if algorithm_mode == 'hkust_tracker':
-    from tracking import TrackedRadarPipeline
-    from tracking.types import TargetState
+    from detect.tracking import TrackedRadarPipeline
+    from detect.tracking.types import TargetState
 tracked_targets_lock = threading.Lock()
 tracked_targets = {}
 multi_car_recognition = bool(config.get('global', {}).get('multi_car_recognition', True))
@@ -177,7 +185,7 @@ if recording_selected_root is not None and not recording_selected_root.is_absolu
     recording_selected_root = Path(__file__).resolve().parent / recording_selected_root
 recording_prefer_external = bool(recording_config.get('prefer_external', True))
 recording_external_directory = str(
-    recording_config.get('external_directory', 'SHARK-radar-recordings')
+    recording_config.get('external_directory', 'Transistor-radar-recordings')
 )
 report_runtime_status(recording_requested=record_video, recording=False)
 
@@ -1838,7 +1846,7 @@ if referee_mode == 'radio_ros':
     )
     try:
         referee_transport.start()
-        print('radio_ros 本地桥接已启动，等待 shark-radar-radio 状态心跳；裁判串口由无线电侧独占')
+        print('radio_ros 本地桥接已启动，等待 transistor-radar-radio 状态心跳；裁判串口由无线电侧独占')
         report_runtime_status(radio_ros_connected=False, radio_ros_error=None)
     except Exception as error:
         print(f'radio_ros 裁判通信降级，视觉推理继续运行: {error}')
@@ -1867,7 +1875,7 @@ if compare_enabled:
 # 加载模型，实例化机器人检测器和装甲板检测器 yolov5
 weights_path = config['paths']['models']['car']
 weights_path_next = config['paths']['models']['armor']
-detector = YOLOv5Detector(weights_path, img_size=car_img_size, data='yaml/car.yaml',
+detector = YOLOv5Detector(weights_path, img_size=car_img_size, data='config/car.yaml',
                           conf_thres=vehicle_low_confidence,
                           iou_thres=0.5, max_det=14, ui=True)
 detector_next = None
@@ -1877,7 +1885,7 @@ if algorithm_mode == 'hkust_tracker' and armor_batch_path and os.path.isfile(arm
     try:
         detector_next = YOLOv5Detector(
             armor_batch_path,
-            data='yaml/armor.yaml',
+            data='config/armor.yaml',
             conf_thres=armor_conf_threshold,
             iou_thres=0.2,
             img_size=(320, 320),
@@ -1892,7 +1900,7 @@ if algorithm_mode == 'hkust_tracker' and armor_batch_path and os.path.isfile(arm
         detector_next = None
         print(f"动态装甲板 batch 引擎加载失败，使用静态 4x4 拼图: {error}")
 if detector_next is None:
-    detector_next = YOLOv5Detector(weights_path_next, data='yaml/armor.yaml',
+    detector_next = YOLOv5Detector(weights_path_next, data='config/armor.yaml',
                                    conf_thres=armor_conf_threshold, iou_thres=0.2,
                                    img_size=armor_img_size,
                                    max_det=16 if algorithm_mode == 'hkust_tracker' else 10,
@@ -2055,7 +2063,7 @@ if record_video:
             f"编码器={recording_codec}，后台队列={recording_queue_size}"
         )
         recording_manifest = {
-            "schema": "shark.radar.vision_recording.v1",
+            "schema": "transistor.radar.vision_recording.v1",
             "match_run_id": match_run_id,
             "component_session_id": recording_directory.name,
             "started_at": time.time(),

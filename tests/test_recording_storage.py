@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from recording_storage import (
+from output.recording_storage import (
     allocate_match_directory,
     allocate_named_match_directory,
     discover_external_mounts,
@@ -98,7 +98,7 @@ class RecordingStorageTest(unittest.TestCase):
 
         first, first_storage = prepare_match_recording_directory(
             default_root,
-            external_directory="SHARK",
+            external_directory="Transistor",
             mountinfo_path=mountinfo,
             sys_dev_block=self.sys_dev_block,
             mount_roots=(self.mount_root,),
@@ -106,8 +106,8 @@ class RecordingStorageTest(unittest.TestCase):
         second = allocate_match_directory(first_storage.root)
 
         self.assertTrue(first_storage.is_external)
-        self.assertEqual(first, self.external_mount / "SHARK" / "game1")
-        self.assertEqual(second, self.external_mount / "SHARK" / "game2")
+        self.assertEqual(first, self.external_mount / "Transistor" / "game1")
+        self.assertEqual(second, self.external_mount / "Transistor" / "game2")
         self.assertFalse(default_root.exists())
 
     def test_falls_back_to_default_without_external_disk(self):
@@ -145,14 +145,14 @@ class RecordingStorageTest(unittest.TestCase):
 
         storage = suggest_recording_storage(
             self.root / "local-recordings",
-            external_directory="SHARK",
+            external_directory="Transistor",
             mountinfo_path=mountinfo,
             sys_dev_block=self.sys_dev_block,
             mount_roots=(self.mount_root,),
         )
 
         self.assertTrue(storage.is_external)
-        self.assertEqual(storage.root, self.external_mount / "SHARK")
+        self.assertEqual(storage.root, self.external_mount / "Transistor")
         self.assertFalse(storage.root.exists())
 
     def test_selected_path_is_used_exactly(self):
@@ -195,7 +195,7 @@ class RecordingStorageTest(unittest.TestCase):
 
     def test_unplugged_selected_external_path_falls_back_without_recreating_mount(self):
         mountinfo = self._write_mountinfo([])
-        selected_root = self.mount_root / "UNPLUGGED" / "SHARK"
+        selected_root = self.mount_root / "UNPLUGGED" / "Transistor"
         default_root = self.root / "local-recordings"
 
         directory, storage = prepare_match_recording_directory(
@@ -213,7 +213,7 @@ class RecordingStorageTest(unittest.TestCase):
 
     def test_discovery_does_not_enumerate_dev_or_usb_bus(self):
         mountinfo = self._write_mountinfo([])
-        with mock.patch("recording_storage.Path.iterdir") as iterdir:
+        with mock.patch("output.recording_storage.Path.iterdir") as iterdir:
             discover_external_mounts(
                 mountinfo_path=mountinfo,
                 sys_dev_block=self.sys_dev_block,

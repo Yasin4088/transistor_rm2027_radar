@@ -1,6 +1,6 @@
 import unittest
 
-from frame_rate import RecentFrameRate
+from capture.frame_rate import RecentFrameRate
 
 
 class RecentFrameRateTest(unittest.TestCase):

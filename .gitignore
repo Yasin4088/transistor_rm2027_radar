@@ -146,3 +146,9 @@ models/engine_backup_*/
 .runtime/
 Data/
 demo_points.txt
+
+# 以下是雷达站工程项目中新补充的忽略文件
+# input_videos/**
+docs/
+# phase_summary/
+**.pdf

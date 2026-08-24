@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mvs_runtime import configure_mvs_runtime, find_mvs_runtime_root
+from capture.mvs_runtime import configure_mvs_runtime, find_mvs_runtime_root
 
 
 class MvsRuntimeTest(unittest.TestCase):

@@ -3,9 +3,9 @@ set -eu
 
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 START_SCRIPT="$PROJECT_ROOT/scripts/start_launcher.sh"
-TEMPLATE="$PROJECT_ROOT/scripts/shark-radar-launcher.desktop.in"
+TEMPLATE="$PROJECT_ROOT/scripts/transistor-radar-launcher.desktop.in"
 AUTOSTART_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
-TARGET="$AUTOSTART_DIR/shark-radar-launcher.desktop"
+TARGET="$AUTOSTART_DIR/transistor-radar-launcher.desktop"
 TEMP_FILE=$(mktemp)
 trap 'rm -f "$TEMP_FILE"' EXIT
 
@@ -23,4 +23,4 @@ sed \
 install -m 0644 "$TEMP_FILE" "$TARGET"
 
 echo "已启用登录自启动: $TARGET"
-echo "登录桌面后将自动打开 SHARK 雷达比赛启动台。"
+echo "登录桌面后将自动打开 Transistor 雷达比赛启动台。"

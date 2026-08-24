@@ -2,11 +2,11 @@ import unittest
 
 import numpy as np
 
-from tracking.kalman import BoxKalman, WorldKalman
-from tracking.pipeline import TrackedRadarPipeline
-from tracking.roi_batch import make_letterboxed_roi, pack_tiles
-from tracking.tracker import IdentityManager, VehicleTrack, VehicleTracker
-from tracking.types import ArmorEvidence, CarDetection, TargetState, TrackState
+from detect.tracking.kalman import BoxKalman, WorldKalman
+from detect.tracking.pipeline import TrackedRadarPipeline
+from detect.tracking.roi_batch import make_letterboxed_roi, pack_tiles
+from detect.tracking.tracker import IdentityManager, VehicleTrack, VehicleTracker
+from detect.tracking.types import ArmorEvidence, CarDetection, TargetState, TrackState
 
 
 class RoiBatchTests(unittest.TestCase):
