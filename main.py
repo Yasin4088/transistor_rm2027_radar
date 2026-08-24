@@ -418,7 +418,17 @@ def project_image_point_to_map(point_x, point_y):
     world = pixel_to_world((point_x, point_y))
     if world is None:
         return point_x, point_y
-    return world[0], world[1]
+    # 米制 3D 世界坐标 → 2800x1500 地图坐标（照 HKUST solidwork2uwb）
+    # mesh 坐标系：x∈[-8,8] 短边, z∈[-14,14] 长边（2025 PLY 的 y 是高度）
+    # 注意：返回 (短边0-1500, 长边0-2800)，与仿射版输出顺序一致，供 project_to_map_and_serial 使用
+    wx, wz = world[0], world[2]
+    if state == 'R':
+        map_x = (-wz + 14.0) * 100.0      # 长边 0-2800
+        map_y = (-wx + 7.5) * 100.0       # 短边 0-1500
+    else:
+        map_x = (28.0 - (-wz + 14.0)) * 100.0
+        map_y = (15.0 - (-wx + 7.5)) * 100.0
+    return map_y, map_x
 
 
 def convert_projected_map_point(xy):
