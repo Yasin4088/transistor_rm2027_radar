@@ -62,7 +62,7 @@ projection:
   car_y_ratio: 0.92
   armor_x_ratio: 0.5
   armor_y_ratio: 1.5
-  mode: 'raycast'  #affine 2d仿射（shark）   raycast 3d射线（港科大）
+  mode: 'affine'  #affine 2d仿射（shark）   raycast 3d射线（港科大）
 
 inference:
   car_img_size: [640, 640]  # 车辆模型输入 [高, 宽]
