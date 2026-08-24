@@ -410,25 +410,43 @@ def _same_car_box(car_box, cached_box):
 
 
 def project_image_point_to_map(point_x, point_y):
-    """像素 → 场地坐标（3D 射线求交，替代原双层仿射）"""
-    if pixel_to_world is None:
-        return point_x, point_y  # 未初始化时降级
+    """像素 → 场地坐标。按 config 的 projection.mode 走 2D 仿射或 3D 射线"""
     point_x = min(max(point_x, 0), img_x)
     point_y = min(max(point_y, 0), img_y)
-    world = pixel_to_world((point_x, point_y))
-    if world is None:
-        return point_x, point_y
-    # 米制 3D 世界坐标 → 2800x1500 地图坐标（照 HKUST solidwork2uwb）
-    # mesh 坐标系：x∈[-8,8] 短边, z∈[-14,14] 长边（2025 PLY 的 y 是高度）
-    # 注意：返回 (短边0-1500, 长边0-2800)，与仿射版输出顺序一致，供 project_to_map_and_serial 使用
-    wx, wz = world[0], world[2]
-    if state == 'R':
-        map_x = (-wz + 14.0) * 100.0      # 长边 0-2800
-        map_y = (-wx + 7.5) * 100.0       # 短边 0-1500
-    else:
-        map_x = (28.0 - (-wz + 14.0)) * 100.0
-        map_y = (15.0 - (-wx + 7.5)) * 100.0
-    return map_y, map_x
+
+    # --- 2D 仿射路径（M_ground/M_height_r 由改动二加载） ---
+    if projection_mode == 'affine' and M_ground is not None:
+        camera_point = np.array([[[point_x, point_y]]], dtype=np.float32)
+        mapped_point = cv2.perspectiveTransform(camera_point.reshape(1, 1, 2), M_ground)
+        x_c = max(int(mapped_point[0][0][0]), 0)
+        y_c = max(int(mapped_point[0][0][1]), 0)
+        x_c = min(x_c, width)
+        y_c = min(y_c, height)
+        color = mask_image[y_c, x_c]
+        if color[0] == color[1] == color[2] == 0:
+            return x_c, y_c
+        mapped_point = cv2.perspectiveTransform(camera_point.reshape(1, 1, 2), M_height_r)
+        x_c = max(int(mapped_point[0][0][0]), 0)
+        y_c = max(int(mapped_point[0][0][1]), 0)
+        x_c = min(x_c, width)
+        y_c = min(y_c, height)
+        return x_c, y_c
+
+    # --- 3D 射线路径 ---
+    if pixel_to_world is not None:
+        world = pixel_to_world((point_x, point_y))
+        if world is not None:
+            wx, wz = world[0], world[2]
+            if state == 'R':
+                map_x = (-wz + 14.0) * 100.0
+                map_y = (-wx + 7.5) * 100.0
+            else:
+                map_x = (28.0 - (-wz + 14.0)) * 100.0
+                map_y = (15.0 - (-wx + 7.5)) * 100.0
+            return map_y, map_x
+
+    # --- 双模式都不可用：降级 ---
+    return point_x, point_y
 
 
 def convert_projected_map_point(xy):
@@ -510,28 +528,42 @@ def apply_occlusion_hold(filtered_data):
         occlusion_hold_cache.pop(name, None)
     return merged
 
-# 文件路径配置
+# 文件路径配置（地图/UI 背景，两个模式都需要）
 if state == 'R':
-    loaded_arrays = np.load(config['paths']['calibration']['red'])
     map_image = cv2.imread(config['paths']['map_images']['red'])
 else:
-    loaded_arrays = np.load(config['paths']['calibration']['blue'])
     map_image = cv2.imread(config['paths']['map_images']['blue'])
-
-mask_image = cv2.imread(config['paths']['map_images']['mask'])
+mask_image = cv2.imread(config['paths']['map_images']['mask'])   # 仿射选层用，保留
 map_backup = cv2.imread(config['paths']['map_images']['backup'])
 
-# 3D 射线定位（替代原双层仿射 M_ground/M_height_r）
-pixel_to_world = None
-try:
-    from raycast import PixelToWorld, build_pixel_to_world_from_npz
-    _mesh = o3d.io.read_triangle_mesh(config['paths']['mesh_path'])
-    pixel_to_world = build_pixel_to_world_from_npz(config['paths']['intrinsics_path'], _mesh)
-    print(f"3D 射线定位已启用, mesh: {config['paths']['mesh_path']}")
-except Exception as e:
-    print(f"3D 射线定位初始化失败，降级为像素坐标: {e}")
+# 投影模式初始化（config 切换 2D 仿射 / 3D 射线）
+projection_mode = config.get('projection', {}).get('mode', 'raycast')
 
-# 确定地图画面像素，保证不会溢出
+M_ground = None
+M_height_r = None
+pixel_to_world = None
+
+if projection_mode == 'affine':
+    # --- 2D 仿射模式（shark 原版） ---
+    if state == 'R':
+        loaded_arrays = np.load(config['paths']['calibration']['red'])
+    else:
+        loaded_arrays = np.load(config['paths']['calibration']['blue'])
+    M_ground = loaded_arrays[0]      # 地面层
+    M_height_r = loaded_arrays[1]    # 高地层
+    print("投影模式: 2D 双层仿射")
+else:
+    # --- 3D 射线模式（raycast） ---
+    try:
+        from raycast import PixelToWorld, build_pixel_to_world_from_npz
+        _mesh = o3d.io.read_triangle_mesh(config['paths']['mesh_path'])
+        pixel_to_world = build_pixel_to_world_from_npz(
+            config['paths']['intrinsics_path'], _mesh)
+        print(f"投影模式: 3D 射线定位, mesh: {config['paths']['mesh_path']}")
+    except Exception as e:
+        print(f"3D 射线定位初始化失败，降级为像素坐标: {e}")
+
+# 确定地图画面像素
 height, width = mask_image.shape[:2]
 height -= 1
 width -= 1
