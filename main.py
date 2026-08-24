@@ -417,8 +417,13 @@ def _same_car_box(car_box, cached_box):
     return width_change <= temporary_death_max_size_change and height_change <= temporary_death_max_size_change
 
 
+_raycast_miss_count = 0  # 3D 射线未命中计数（排查用）
+
+
 def project_image_point_to_map(point_x, point_y):
-    """像素 → 场地坐标。按 config 的 projection.mode 走 2D 仿射或 3D 射线"""
+    """像素 → 场地坐标。按 config 的 projection.mode 走 2D 仿射或 3D 射线
+    3D 模式下未命中 mesh 返回 None（上层跳过，不参与上报）"""
+    global _raycast_miss_count
     point_x = min(max(point_x, 0), img_x)
     point_y = min(max(point_y, 0), img_y)
 
@@ -452,8 +457,14 @@ def project_image_point_to_map(point_x, point_y):
                 map_x = (28.0 - (-wz + 14.0)) * 100.0
                 map_y = (15.0 - (-wx + 7.5)) * 100.0
             return map_y, map_x
+        # 未命中：显式暴露（计数+节流日志），不静默降级
+        global _raycast_miss_count
+        _raycast_miss_count += 1
+        if _raycast_miss_count % 100 == 1:
+            print(f"[射线] 未命中 mesh ({int(point_x)},{int(point_y)}) 累计{_raycast_miss_count}次")
+        return None
 
-    # --- 双模式都不可用：降级 ---
+    # --- 射线模式未初始化（启动失败兜底） ---
     return point_x, point_y
 
 
@@ -565,9 +576,12 @@ else:
     try:
         from raycast import PixelToWorld, build_pixel_to_world_from_npz
         _mesh = o3d.io.read_triangle_mesh(config['paths']['mesh_path'])
-        pixel_to_world = build_pixel_to_world_from_npz(
+        pixel_to_world, _calibrated = build_pixel_to_world_from_npz(
             config['paths']['intrinsics_path'], _mesh)
         print(f"投影模式: 3D 射线定位, mesh: {config['paths']['mesh_path']}")
+        if not _calibrated:
+            print("⚠️ 警告: 3D 射线定位使用【假外参】(R=I, T=俯视10m)——"
+                  "坐标不可用于比赛！需 6 点 PnP 标定后传入真实 R/T")
     except Exception as e:
         print(f"3D 射线定位初始化失败，降级为像素坐标: {e}")
 
@@ -1959,7 +1973,8 @@ if algorithm_mode == 'hkust_tracker':
         config=config,
         car_detector=detector,
         armor_detector=detector_next,
-        project_point=lambda point: project_image_point_to_map(point[0], point[1]),
+        project_point=lambda point: (lambda r: r if r is not None else (0.0, 0.0))(
+            project_image_point_to_map(point[0], point[1])),
         convert_map_point=convert_projected_map_point,
         side=state,
     )
@@ -2561,6 +2576,8 @@ while not stop_requested:
             cv2.circle(img0, (int(point_x), int(point_y)), 6, (0, 255, 255), -1)
             # 原图中的车体落点/装甲板锚点作为待仿射变化的点
             X_M, Y_M = project_image_point_to_map(point_x, point_y)
+            if X_M is None:  # 3D 射线未命中 mesh，跳过该候选
+                continue
             recognized_names.add(best_cls)
             measured_names.add(best_cls)
             add_position_measurement(best_cls, X_M, Y_M, (left, top, car_w, car_h))
@@ -2576,6 +2593,8 @@ while not stop_requested:
             point_x = left + projection_car_x_ratio * car_w
             point_y = top + projection_car_y_ratio * car_h
             X_M, Y_M = project_image_point_to_map(point_x, point_y)
+            if X_M is None:  # 3D 射线未命中 mesh，跳过保持
+                continue
             add_position_measurement(held_name, X_M, Y_M, car_box, temporary_dead=True)
             recognized_names.add(held_name)
             cv2.circle(img0, (int(point_x), int(point_y)), 6, (255, 255, 0), -1)

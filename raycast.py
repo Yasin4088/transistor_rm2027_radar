@@ -4,15 +4,17 @@ import cv2
 
 
 def build_pixel_to_world_from_npz(npz_path, mesh, R=None, T=None):
-    """从标定 npz 构建 PixelToWorld（R/T 可选，缺省用单位矩阵+俯视10m假外参）"""
+    """从标定 npz 构建 PixelToWorld（R/T 可选，缺省用单位矩阵+俯视10m假外参）
+    返回 (PixelToWorld, calibrated: bool)；calibrated=False 表示用的是假外参"""
     data = np.load(npz_path)
     K = data['K'].astype(np.float64)
     dist = data['dist'].astype(np.float64)
+    calibrated = (R is not None and T is not None)
     if R is None:
         R = np.eye(3)
     if T is None:
         T = np.array([[0.0], [0.0], [10.0]])
-    return PixelToWorld(K, R, T, mesh, dist_coeffs=dist)
+    return PixelToWorld(K, R, T, mesh, dist_coeffs=dist), calibrated
 
 
 class PixelToWorld:
@@ -25,6 +27,8 @@ class PixelToWorld:
         self.R = np.array(R, dtype=np.float64)
         self.T = np.array(T, dtype=np.float64).reshape(3, 1)
         self.mesh = mesh
+        # 预计算：K 的逆（每帧多次调用，避免重复求逆）
+        self.K_inv = np.linalg.inv(self.camera_matrix)
         self.scene = o3d.t.geometry.RaycastingScene()
         self.scene.add_triangles(
             o3d.t.geometry.TriangleMesh.from_legacy(self.mesh))
@@ -37,9 +41,9 @@ class PixelToWorld:
             undist = cv2.undistortPoints(pts, self.camera_matrix,
                                          self.dist_coeffs, P=self.camera_matrix)
             u, v = undist[0, 0]
-        # ② 内参反投影 → 相机系方向
+        # ② 内参反投影 → 相机系方向（K_inv 已缓存）
         pixel_hom = np.array([u, v, 1.0], dtype=np.float64)
-        cam_dir = np.linalg.inv(self.camera_matrix) @ pixel_hom
+        cam_dir = self.K_inv @ pixel_hom
         # ③ 外参旋转 → 世界系方向
         world_dir = self.R.T @ cam_dir
         origin = -self.R.T @ self.T.flatten()
