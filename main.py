@@ -450,12 +450,15 @@ def project_image_point_to_map(point_x, point_y):
         world = pixel_to_world((point_x, point_y))
         if world is not None:
             wx, wz = world[0], world[2]
+            # 场地尺寸从 config 读取（长边/短边，米制：map_size/100/2）
+            field_long_m = field_long_cm / 100.0   # 长边半长（米）
+            field_short_m = field_short_cm / 100.0  # 短边半长（米）
             if state == 'R':
-                map_x = (-wz + 14.0) * 100.0
-                map_y = (-wx + 7.5) * 100.0
+                map_x = (-wz + field_long_m) * 100.0
+                map_y = (-wx + field_short_m) * 100.0
             else:
-                map_x = (28.0 - (-wz + 14.0)) * 100.0
-                map_y = (15.0 - (-wx + 7.5)) * 100.0
+                map_x = (2.0 * field_long_m - (-wz + field_long_m)) * 100.0
+                map_y = (2.0 * field_short_m - (-wx + field_short_m)) * 100.0
             return map_y, map_x
         # 未命中：显式暴露（计数+节流日志），不静默降级
         global _raycast_miss_count
@@ -598,6 +601,12 @@ else:
 height, width = mask_image.shape[:2]
 height -= 1
 width -= 1
+
+# 场地尺寸（cm）——从 config 读取，3D 射线坐标转换用（长边/短边）
+field_map_size = tuple(config.get('ui', {}).get('map_size', [2800, 1500])) \
+    if config.get('ui', {}).get('map_size') else tuple(config['global'].get('map_size', [2800, 1500]))
+field_long_cm = max(field_map_size)    # 长边（2800）
+field_short_cm = min(field_map_size)   # 短边（1500）
 
 # 初始化战场信息UI（易伤情况、双倍易伤次数、双倍易伤触发状态）
 information_ui = np.zeros((config['ui']['info_panel_size'][1],
