@@ -576,10 +576,19 @@ else:
     try:
         from raycast import PixelToWorld, build_pixel_to_world_from_npz
         _mesh = o3d.io.read_triangle_mesh(config['paths']['mesh_path'])
-        pixel_to_world, _calibrated = build_pixel_to_world_from_npz(
-            config['paths']['intrinsics_path'], _mesh)
-        print(f"投影模式: 3D 射线定位, mesh: {config['paths']['mesh_path']}")
-        if not _calibrated:
+        # 优先加载已标定的外参（extrinsics.npz），否则用默认假外参
+        import os as _os
+        _ext_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'extrinsics.npz')
+        if _os.path.isfile(_ext_path):
+            _ext = np.load(_ext_path)
+            _R, _T = _ext['R'], _ext['t']
+            pixel_to_world, _calibrated = build_pixel_to_world_from_npz(
+                config['paths']['intrinsics_path'], _mesh, R=_R, T=_T)
+            print(f"投影模式: 3D 射线定位（已标定外参）, mesh: {config['paths']['mesh_path']}")
+        else:
+            pixel_to_world, _calibrated = build_pixel_to_world_from_npz(
+                config['paths']['intrinsics_path'], _mesh)
+            print(f"投影模式: 3D 射线定位, mesh: {config['paths']['mesh_path']}")
             print("⚠️ 警告: 3D 射线定位使用【假外参】(R=I, T=俯视10m)——"
                   "坐标不可用于比赛！需 6 点 PnP 标定后传入真实 R/T")
     except Exception as e:

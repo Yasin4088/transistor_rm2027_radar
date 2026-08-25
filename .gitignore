@@ -152,3 +152,11 @@ demo_points.txt
 docs/
 # phase_summary/
 **.pdf
+
+# 临时标点工具与中间文件（不入库）
+pick_*.py
+keypoints_picked.txt
+image_points.txt
+rm26_frame.png
+points_xyz.xlsx
+extrinsics.npz

@@ -62,7 +62,7 @@ projection:
   car_y_ratio: 0.92
   armor_x_ratio: 0.5
   armor_y_ratio: 1.5
-  mode: 'affine'  #affine 2d仿射（shark）   raycast 3d射线（港科大）
+  mode: 'raycast'  #affine 2d仿射（shark）   raycast 3d射线（港科大）
 
 inference:
   car_img_size: [640, 640]  # 车辆模型输入 [高, 宽]
@@ -178,7 +178,7 @@ paths:
     blue: 'images/blue.jpg'
     mask: 'images/map_mask26.jpg' # 加载落点判断掩码
     backup: 'images/image_2026.jpg'
-  mesh_path: 'field/RMUC2026_simple.PLY'  # 3D 场地 mesh
+  mesh_path: 'field/RMUC2026_National.PLY'  # 3D 场地 mesh
   intrinsics_path: 'camera_intrinsics.npz'  # 相机内参标定结果（棋盘格标定生成）
   models:
     car: 'models/car.engine'
