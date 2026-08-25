@@ -207,6 +207,9 @@ blind_zone:
     B2: [[1906, 748], [2559, 1398]] # [1460, 688]
     B7: [[2126, 755], [2400, 671]]
 
+fusion:
+  enabled: false  # 多源坐标融合（信息波 UWB 为主 + 视觉回退）；true 需要信息波数据源（sp_rf RX）
+
 double_vulnerability:
   enabled: false  # 视觉端不再自主触发；后续双倍易伤决策统一由无线电程序负责
   trigger_mode: 'disabled'  # 旧视觉策略保留仅供历史参考，不再参与比赛决策

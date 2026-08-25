@@ -750,6 +750,29 @@ guess_table = {}
 for robot, points in config['blind_zone']['points'].items():
     guess_table[robot] = [tuple(point) for point in points]
 
+# ---- 多源坐标融合（信息波 UWB 为主 + 视觉回退 + 盲区兜底）----
+fusion_enabled = bool(config.get('fusion', {}).get('enabled', False))
+fusion_buffer = None
+if fusion_enabled:
+    try:
+        from fusion.position_fusion import PositionFusionBuffer
+        fusion_buffer = PositionFusionBuffer()
+        print("多源坐标融合已启用（信息波 UWB 为主 + 视觉回退）")
+    except Exception as e:
+        print(f"多源坐标融合初始化失败: {e}")
+
+
+def feed_info_wave_positions(positions_cm):
+    """喂入信息波 0x0A01 坐标（{机器人名: (x_cm, y_cm)}，裁判坐标）"""
+    if fusion_buffer is not None and positions_cm:
+        fusion_buffer.update_info_wave(positions_cm)
+
+
+def feed_vision_positions(vision_map):
+    """喂入视觉坐标（{机器人名: ((x,y)或None, (盲区x,y)或None)}）"""
+    if fusion_buffer is not None and vision_map:
+        fusion_buffer.update_vision_tracks(vision_map)
+
 # 盲区预测打分参数（照 HKUST guess_pts.py）
 guess_velocity_scoring = bool(config.get('blind_zone', {}).get('velocity_scoring', True))
 guess_cos_factor = float(config.get('blind_zone', {}).get('cos_factor', 0.003))
@@ -1595,7 +1618,25 @@ def ser_send():
                 all_filter_data = apply_occlusion_hold(filter.get_all_data())
                 valid_send_names, occlusion_names = get_referee_target_states()
 
+                # 喂视觉坐标给融合缓冲（地面坐标 + 盲区预测点）
+                if fusion_buffer is not None:
+                    vision_map = {}
+                    for robot_name in send_map:
+                        ground = all_filter_data.get(robot_name)
+                        blind = None
+                        if guess_list.get(robot_name):
+                            blind = send_point_guess(robot_name, guess_time_limit)
+                        vision_map[robot_name] = (ground, blind)
+                    feed_vision_positions(vision_map)
+
                 def update_send_map_entry(robot_name, allow_guess=False):
+                    # 融合仲裁优先（信息波 UWB > 视觉 > 旧信息波 > 盲区）
+                    if fusion_buffer is not None:
+                        resolved = fusion_buffer.resolve([robot_name]).get(robot_name)
+                        if resolved is not None and resolved.coordinate is not None:
+                            send_map[robot_name] = (resolved.coordinate.x, resolved.coordinate.y)
+                            return
+
                     if referee_send_correct_only and robot_name not in valid_send_names:
                         send_map[robot_name] = (0, 0)
                         return
