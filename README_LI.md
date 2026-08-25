@@ -38,6 +38,32 @@ projection.mode: 'raycast'  # 3D 射线定位
    → 修复：返回 None + 计数日志（每 100 次一条），3 个调用点跳过 None。
 3. **假外参静默**：未标定时默认 `R=I, T=[0,0,10]`，坐标全错无提示。
    → 修复：启动时检测并打印 ⚠️ 警告。
+4. **融合视觉喂入坐标系错乱**：滤波器/盲区点是内部坐标（短边,长边），融合模块校验是裁判坐标（0-2800/0-1500）→ 直接喂会被越界误杀。
+   → 修复：喂入前 `_to_referee` 转换（内部→裁判）。
+5. **场地尺寸硬编码**：3D 射线投影里 14.0/7.5/28/15 写死 → 换 2027 场地必须改代码。
+   → 修复：改从 config `map_size` 读取。
+
+## 多源坐标融合（信息波 UWB + 视觉）
+
+```
+src/fusion/position_fusion.py（新）：
+  仲裁优先级：① 信息波 UWB(≤0.2s) → ② 视觉 3D(≤0.5s) → ③ 信息波旧(≤10s) → ④ 盲区 → ⑤ 无效
+  + 坐标校验(0-2800/0-1500) + 阵营切换清空
+
+main.py 接入（fusion.enabled 开关，默认 false）：
+  feed_info_wave_positions()  ← 信息波坐标入口（待 sp_rf 对接）
+  feed_vision_positions()     ← 视觉喂入（已接）
+  update_send_map_entry       ← 仲裁优先（已接）
+
+已验证：sp_rf debug 模式 0x0A06 密钥解出、0x0A01 坐标解析成功（纯软件协议正确）
+待办：sp_rf RX → feed_info_wave_positions 进程对接（等 SDR/部署）
+```
+
+## 2026 实验标定结论
+
+- 用 TCR 开源资产验证 3D 定位链路：mesh + 13 点标定 → PnP 残差 44px → 点位分布合理（链路通）
+- 相机高度 5.6 vs 实际 2.5m：根因是视频相机≠标定相机（内参不匹配），非代码问题
+- **精度等 2027 实机重标**（棋盘格内参 + 6 点 PnP 外参，工具已就绪）
 
 ## 已知待办
 
@@ -47,8 +73,11 @@ projection.mode: 'raycast'  # 3D 射线定位
 4. **2D 仿射也需重标**：shark 的 arrays_test_*.npy 是他队场地标定，换场地必须重标
 5. **盲区预测预选点不足**：每角色仅 2 个点，需扩到 4-5 个（吊射点/银矿/对方基地/消失点附近），等 2027 场地确定
 6. **盲区预测调试日志**：加 `blind_zone.debug` 开关，运行中区分"打分/轮换"模式
+7. **融合对接**：sp_rf RX → `feed_info_wave_positions`（等 SDR 硬件/部署）
 
 ## 参考
 
 - HKUST 2025：`RM2025-Radar-Algorithm`（ray_renderer.py / solvepnp.py / guess_pts.py）
 - shark 2026：`shark-radar-system`（基础链路）
+- TCR 2026：`TCR-RM2026-Radar-OpenSource`（多源融合 position_fusion.py，无线电为主）
+- sp_rf 2026：`sp_rf_2026-OpenSource`（雷达无线链路仿真，NanoSDR 工程）
