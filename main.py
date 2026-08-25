@@ -1618,7 +1618,7 @@ def ser_send():
                 all_filter_data = apply_occlusion_hold(filter.get_all_data())
                 valid_send_names, occlusion_names = get_referee_target_states()
 
-                # 喂视觉坐标给融合缓冲（地面坐标 + 盲区预测点）
+                # 喂视觉坐标给融合缓冲（转裁判坐标：内部(短边,长边) → 裁判(长边,短边)）
                 if fusion_buffer is not None:
                     vision_map = {}
                     for robot_name in send_map:
@@ -1626,7 +1626,14 @@ def ser_send():
                         blind = None
                         if guess_list.get(robot_name):
                             blind = send_point_guess(robot_name, guess_time_limit)
-                        vision_map[robot_name] = (ground, blind)
+                        # 内部坐标 → 裁判坐标（x:0-2800长边, y:0-1500短边）
+                        def _to_referee(xy):
+                            if xy is None:
+                                return None
+                            if state == 'R':
+                                return (2800 - xy[1], xy[0])
+                            return (xy[1], 1500 - xy[0])
+                        vision_map[robot_name] = (_to_referee(ground), _to_referee(blind))
                     feed_vision_positions(vision_map)
 
                 def update_send_map_entry(robot_name, allow_guess=False):
