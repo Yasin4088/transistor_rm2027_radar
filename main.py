@@ -450,9 +450,9 @@ def project_image_point_to_map(point_x, point_y):
         world = pixel_to_world((point_x, point_y))
         if world is not None:
             wx, wz = world[0], world[2]
-            # 场地尺寸从 config 读取（长边/短边，米制：map_size/100/2）
-            field_long_m = field_long_cm / 100.0   # 长边半长（米）
-            field_short_m = field_short_cm / 100.0  # 短边半长（米）
+            # 场地尺寸从 config 读取（半长，米制：mesh 是 ±14m/±7.5m 体系）
+            field_long_m = field_long_half_cm / 100.0   # 长边半长（14.0m）
+            field_short_m = field_short_half_cm / 100.0  # 短边半长（7.5m）
             if state == 'R':
                 map_x = (-wz + field_long_m) * 100.0
                 map_y = (-wx + field_short_m) * 100.0
@@ -602,11 +602,14 @@ height, width = mask_image.shape[:2]
 height -= 1
 width -= 1
 
-# 场地尺寸（cm）——从 config 读取，3D 射线坐标转换用（长边/短边）
+# 场地尺寸（cm）——从 config 读取，3D 射线坐标转换用
+# 注意：mesh 坐标是"半长"体系（长边 ±14m = ±1400cm），需除以 2 得半长
 field_map_size = tuple(config.get('ui', {}).get('map_size', [2800, 1500])) \
     if config.get('ui', {}).get('map_size') else tuple(config['global'].get('map_size', [2800, 1500]))
-field_long_cm = max(field_map_size)    # 长边（2800）
-field_short_cm = min(field_map_size)   # 短边（1500）
+field_long_cm = max(field_map_size)    # 长边全长（2800cm）
+field_short_cm = min(field_map_size)   # 短边全长（1500cm）
+field_long_half_cm = field_long_cm / 2.0   # 长边半长（1400cm = 14m）
+field_short_half_cm = field_short_cm / 2.0  # 短边半长（750cm = 7.5m）
 
 # 初始化战场信息UI（易伤情况、双倍易伤次数、双倍易伤触发状态）
 information_ui = np.zeros((config['ui']['info_panel_size'][1],
