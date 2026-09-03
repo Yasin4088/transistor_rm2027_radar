@@ -150,3 +150,4 @@ models/engine_backup_*/
 docs/
 # phase_summary/
 **.pdf
+.vscode/
