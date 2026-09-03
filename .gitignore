@@ -160,3 +160,5 @@ image_points.txt
 rm26_frame.png
 points_xyz.xlsx
 docs/
+
+.vscode/**
