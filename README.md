@@ -1,6 +1,6 @@
 # 北航 Transistor 战队 RM2027 雷达站
 
-本仓库现同时包含视觉雷达和无线电后端，运行时不需要工作区中的
+本仓库现同时包含视觉雷达和无线电后端，源码不再导入工作区中的
 其他参考仓库。视觉基础框架借鉴了 JNU-SHARK 的开源工作；无线电源码的
 准确上游版本和 MIT 归属见 [`radio/UPSTREAM.md`](radio/UPSTREAM.md)。
 
@@ -38,6 +38,13 @@ Python 3.10 通过 localhost UDP sidecar 隔离，解决 `rclpy` ABI 不兼容�
 ```
 
 LabTX 必须单独启动，不会随比赛接收链路启动。
+
+启动器优先使用本仓库 `.venv/bin/python`。当前机器为避免重复安装
+TensorRT/CUDA，可以显式传入已有视觉环境：
+
+```bash
+VISION_PYTHON=/path/to/python ./scripts/start_integrated_radar.sh
+```
 
 ## 分支回退
 

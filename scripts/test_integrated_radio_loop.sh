@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VISION_PYTHON="${VISION_PYTHON:-/home/elysia/robomaster/shark-radar-system/shark-radar-vision/.venv/bin/python}"
+VISION_PYTHON="${VISION_PYTHON:-$PROJECT_ROOT/.venv/bin/python}"
+SHARED_VISION_PYTHON="/home/elysia/robomaster/shark-radar-system/shark-radar-vision/.venv/bin/python"
 radio_pid=""
 
 cleanup() {
@@ -16,8 +17,13 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 
+if [[ ! -x "$VISION_PYTHON" && -x "$SHARED_VISION_PYTHON" ]]; then
+  VISION_PYTHON="$SHARED_VISION_PYTHON"
+  echo "[radio-loop-test] using existing shared vision environment: $VISION_PYTHON" >&2
+fi
 if [[ ! -x "$VISION_PYTHON" ]]; then
   echo "vision Python not found: $VISION_PYTHON" >&2
+  echo "create $PROJECT_ROOT/.venv or set VISION_PYTHON explicitly" >&2
   exit 2
 fi
 if [[ ! -f "$PROJECT_ROOT/radio/install/setup.bash" ]]; then

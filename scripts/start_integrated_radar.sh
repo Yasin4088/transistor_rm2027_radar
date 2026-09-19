@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VISION_PYTHON="/home/elysia/robomaster/shark-radar-system/shark-radar-vision/.venv/bin/python"
+VISION_PYTHON="${VISION_PYTHON:-$PROJECT_ROOT/.venv/bin/python}"
+SHARED_VISION_PYTHON="/home/elysia/robomaster/shark-radar-system/shark-radar-vision/.venv/bin/python"
 RADIO_ARGS=()
 RUN_VISION=true
 
@@ -34,8 +35,13 @@ EOF
   esac
 done
 
+if [[ ! -x "$VISION_PYTHON" && -x "$SHARED_VISION_PYTHON" ]]; then
+  VISION_PYTHON="$SHARED_VISION_PYTHON"
+  echo "[integrated-radar] using existing shared vision environment: $VISION_PYTHON" >&2
+fi
 if [[ ! -x "$VISION_PYTHON" ]]; then
   echo "vision Python not found: $VISION_PYTHON" >&2
+  echo "create $PROJECT_ROOT/.venv or set VISION_PYTHON explicitly" >&2
   exit 2
 fi
 if [[ ! -f "$PROJECT_ROOT/radio/install/setup.bash" ]]; then
