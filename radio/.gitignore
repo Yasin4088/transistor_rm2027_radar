@@ -1,0 +1,6 @@
+build/
+install/
+log/
+*.log
+local.env
+apps/*/local.env

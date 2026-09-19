@@ -1,0 +1,15 @@
+rm_ganraoyuan_node:
+  ros__parameters:
+    flowgraph_name: ganraoyuan
+    flowgraph_module: RM
+    flowgraph_class: RM
+    auto_start: true
+    dry_run: false
+    qt_platform: offscreen
+    disable_gui_sinks: true
+    qt_event_period_sec: 0.05
+    interference_tx_uri: ip:192.168.3.1
+    status_period_sec: 1.0
+    # JSON object. Keys map to generated RM.py setters, e.g. center_f -> set_center_f.
+    # Example: '{"center_f": 432200000, "attend_gr": 12.5}'
+    setters_json: '{}'

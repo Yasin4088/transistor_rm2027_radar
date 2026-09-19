@@ -1,0 +1,71 @@
+# Transistor RM2027 lab TX deployment configuration (tracked by Git).
+# This app is intentionally separate from match RX and never starts referee serial.
+# Environment variables are one-shot runtime overrides and are never persisted.
+
+app:
+  host: 127.0.0.1
+  port: 8780
+  log_root: /tmp/rm_radio_runtime_logs
+  dry_run: false
+  auto_open_browser: true
+
+radio:
+  side: blue
+  interference_level: 1
+  # Literal RM2026 V2.0.1 waveform definition: 1 MS/s, SPS=47, BT=0.35.
+  sample_rate: 1000000
+
+devices:
+  # NanoSDR-B is the single-board LabTX. It is never started by match_rx.
+  broadcast_tx_uri: ip:192.168.3.1
+  # Three-board topology has no spare simultaneous interference TX. Keep this
+  # empty until a fourth SDR is assigned or the board roles are deliberately swapped.
+  interference_tx_uri: ""
+  rx1_uri: ip:192.168.1.10
+  rx2_uri: ip:192.168.2.1
+  tx_rf_port: A
+  rx_rf_port: B_BALANCED
+
+# Receiver settings used by LabTX link checks and capture tools. Match runtime
+# settings remain owned by apps/match_rx/config.yaml.
+rx:
+  broadcast_gain_mode: slow_attack
+  broadcast_gain: 20
+  interference_gain_mode: fast_attack
+  interference_gain: 20
+
+decoder:
+  broadcast_iio_capture_enabled: true
+  broadcast_iio_capture_only: true
+  broadcast_iq_autotune_mode: off
+  broadcast_iq_low_pass_hz: 260000
+  broadcast_iio_capture_seconds: 0.6
+  broadcast_iio_capture_period_sec: 1.0
+  broadcast_iio_capture_start_delay_sec: 1.0
+  broadcast_iq_offset_step: 8
+  broadcast_iq_max_payloads: 256
+  broadcast_iq_max_frames: 64
+
+tx:
+  # A per-session RF safety acknowledgement; keep false in committed config.
+  lab_antenna_confirm: false
+  interference_password: R1L001
+  # GNU Radio 3.10.7 gr-iio uses full-scale I/Q. 61 dB preserves the former
+  # GNU Radio 3.10.1 bench level obtained at 37 dB (about +24 dB migration).
+  broadcast_attenuation_db: 61
+  # Bench-calibrated interference-wave power with GNU Radio 3.10.7 gr-iio.
+  interference_attenuation_db: 11
+  official_preset: true
+  buffer_size: 1048576
+  prefill_packets: 0
+
+iq_replay:
+  paths: ""
+  tx_type: broadcast
+  sample_rate: 2000000
+  repeat: true
+  amplitude_scale: 1.0
+  attenuation_db: 60
+  buffer_size: 1048576
+  cache_to_tmp: true
+  cache_dir: /tmp/rm_radio_iq_replay

@@ -1,0 +1,60 @@
+rm_gfsk_node:
+  ros__parameters:
+    flowgraph_name: gfsk
+    flowgraph_module: RX
+    flowgraph_class: RadioRx
+    auto_start: true
+    dry_run: false
+    qt_platform: offscreen
+    disable_gui_sinks: true
+    rx_only: true
+    # auto selects Gaussian + M&M for broadcast and legacy gfsk_demod for interference.
+    demod_mode: auto
+    qt_event_period_sec: 0.05
+    rx_uri: ip:192.168.2.1
+    broadcast_tx_uri: ip:192.168.1.10
+    status_period_sec: 1.0
+    setters_apply_settle_sec: 0.15
+    air_extractor_max_bits: 16384
+    air_extractor_max_access_hamming: 3
+    air_extractor_max_length_hamming: 0
+    air_extractor_allow_inverted: true
+    iq_decoder_enabled: true
+    iq_decoder_window_sec: 1.0
+    iq_decoder_period_sec: 0.5
+    iq_decoder_sps_values: "92,92.5,93,93.5,94,94.5,95"
+    iq_decoder_offset_step: 2
+    iq_decoder_decode_threshold: 3
+    iq_decoder_max_payloads: 512
+    iq_decoder_max_frames: 128
+    iq_decoder_autotune_mode: quick
+    iq_decoder_frequency_shift_hz: 0.0
+    iq_decoder_low_pass_hz: 0.0
+    iq_decoder_max_frequency_candidates: 4
+    iq_decoder_max_candidates: 8
+    spectrum_enabled: true
+    spectrum_period_sec: 0.5
+    spectrum_fft_size: 512
+    spectrum_bin_count: 128
+    # Sticky autotune: lock the winning (shift, low_pass) after a hit and reuse it with a
+    # single fast scan; fall back to full autotune after this many consecutive misses.
+    iq_decoder_autotune_lock_enabled: true
+    iq_decoder_autotune_lock_max_miss: 3
+    # F5 time-diversity voting (interference profile only): majority-vote repeated copies of the
+    # constant password frame so it decodes even when no single copy passes CRC. Additive/safe.
+    iq_decoder_vote_repeated_frames: true
+    # Match recorder control is shared by RX1/RX2. Match launch overrides these
+    # values from apps/match_rx/config.yaml.
+    recording_enabled: false
+    recording_root: ~/.local/share/shark-radio/match-records
+    recording_role: rx
+    recording_control_topic: /rm_match_recorder/control
+    recording_output_sample_rate: 1000000.0
+    recording_segment_sec: 30.0
+    recording_queue_chunks: 64
+    recording_min_free_gb: 15.0
+    recording_iq_compression: zlib
+    recording_iq_compression_level: 1
+    # JSON object. Keys map to RX.py setters, e.g. Gain -> set_Gain.
+    # Example: '{"Gain": 20, "cen_f": 433200000, "LowPass": 260000}'
+    setters_json: '{}'

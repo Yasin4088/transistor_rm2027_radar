@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SharkRadio 比赛接收台</title>
+    <link rel="stylesheet" href="/styles.css?v=rx-20260717-rx-windows-v10" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <h1>比赛接收台</h1>
+        <p id="summary">等待 ROS 状态…</p>
+      </div>
+      <div class="live-control">
+        <label class="smart-switch" title="打开=接收参数全跟裁判串口自动切换；关闭=手动设置红蓝方与干扰等级">
+          <input id="intelligentToggle" type="checkbox" checked />
+          <span>智能跟随裁判</span>
+        </label>
+        <label class="lc-field">己方
+          <select id="radioSide">
+            <option value="red">红方</option>
+            <option value="blue">蓝方</option>
+          </select>
+        </label>
+        <label class="lc-field">干扰等级
+          <select id="interferenceLevel">
+            <option value="1">1 级</option>
+            <option value="2">2 级</option>
+            <option value="3">3 级</option>
+          </select>
+        </label>
+      </div>
+      <div id="radarPerformanceGrid" class="header-rates" aria-label="关键帧率"></div>
+      <div class="header-badges">
+        <span id="overallBadge" class="badge unknown">总体待检测</span>
+        <span id="sideBadge" class="badge">-</span>
+      </div>
+      <div class="header-actions">
+        <button id="refreshBtn" type="button">刷新</button>
+        <button id="checkBtn" type="button">检查 SDR</button>
+        <button id="advBtn" type="button">配置 / 进程</button>
+      </div>
+    </header>
+
+    <nav class="page-tabs" aria-label="接收台页面">
+      <button id="radarTab" class="page-tab active" data-page="radar" type="button">雷达地图</button>
+      <button id="radioTab" class="page-tab" data-page="radio" type="button">无线电监控</button>
+    </nav>
+
+    <section id="radioPage" class="app-page" hidden>
+    <main class="layout">
+      <!-- 左列：频谱 + 信号质量 -->
+      <section class="col col-left">
+        <section class="panel spectrum-panel">
+          <div class="panel-head">
+            <h2>实时频谱</h2>
+            <div class="spectrum-stats">
+              <label class="spectrum-tap">观察点
+                <select id="spectrumTap">
+                  <option value="raw">ADC 原始 IQ</option>
+                  <option value="filtered">低通滤波后</option>
+                </select>
+              </label>
+              <span id="spectrumPerf" class="perf-badge unknown">等待推送</span>
+              <span id="spectrumAge" class="muted">无数据</span>
+            </div>
+          </div>
+          <canvas id="spectrumCanvas"></canvas>
+          <div class="legend">
+            <span><i class="line rx1"></i>RX1 信息波</span>
+            <span><i class="line rx2"></i>RX2 干扰波</span>
+          </div>
+        </section>
+
+        <section class="panel waterfall-panel">
+          <div class="panel-head">
+            <h2>实时瀑布图</h2>
+            <span id="waterfallStatus" class="muted">SSE 未连接</span>
+          </div>
+          <div class="waterfall-grid">
+            <article class="waterfall-card rx1">
+              <div class="waterfall-title"><span>RX1 信息波</span><span id="rx1WaterfallRange">—</span></div>
+              <canvas id="rx1Waterfall"></canvas>
+            </article>
+            <article class="waterfall-card rx2">
+              <div class="waterfall-title"><span>RX2 干扰波</span><span id="rx2WaterfallRange">—</span></div>
+              <canvas id="rx2Waterfall"></canvas>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel quality-panel">
+          <div class="panel-head">
+            <h2>信号质量</h2>
+            <div class="gain-control">
+              <label for="rx1Gain">RX1 manual gain</label>
+              <input id="rx1Gain" type="range" min="-1" max="73" step="1" value="20" />
+              <output id="rx1GainValue">20 dB</output>
+            </div>
+          </div>
+          <div id="qualityGrid" class="quality-grid"></div>
+        </section>
+
+      </section>
+
+      <!-- 中列：信息波逐帧到达时间 + 解析诊断 -->
+      <section class="col col-mid">
+        <section class="panel reception-panel arrival-panel rx1">
+          <div class="reception-head">
+            <div>
+              <h2>信息波 · 各帧最近到达</h2>
+              <span id="rx1Cmd" class="muted">等待帧…</span>
+            </div>
+              <span id="rx1Status" class="recv-badge unknown">待检测</span>
+          </div>
+          <div id="rx1Arrivals" class="arrival-grid">
+            <p class="empty">等待 0x0A01～0x0A05 信息波帧。</p>
+          </div>
+          <div class="decoded-window-head">最近帧字段内容</div>
+          <div id="rx1Decoded" class="decoded-body rx1-decoded-window">
+            <p class="empty">尚未解析到信息波裁判帧。</p>
+          </div>
+        </section>
+
+        <section class="panel loss-panel">
+          <div class="panel-head">
+            <h2>信息波解析诊断 · 最近 10 秒</h2>
+            <span id="lossBadge" class="badge unknown">样本不足</span>
+          </div>
+          <div id="lossDiagnostics" class="loss-grid">
+            <p class="empty">等待信息波帧诊断数据。</p>
+          </div>
+        </section>
+      </section>
+
+      <!-- 右列：干扰波最近接收 + 裁判 -->
+      <section class="col col-right">
+        <section class="panel reception-panel rx2">
+          <div class="reception-head">
+            <div>
+              <h2>干扰波 · 最近接收</h2>
+              <span id="rx2Cmd" class="muted">等待帧…</span>
+            </div>
+            <span id="rx2Status" class="recv-badge unknown">待检测</span>
+          </div>
+          <div class="rx2-live-metrics">
+            <span><em>最近到达</em><strong id="rx2Age">—</strong></span>
+            <span><em>1s 实时帧率</em><strong id="rx2FrameRate">0.0 帧/s</strong></span>
+          </div>
+          <div id="rx2Decoded" class="decoded-body">
+            <p class="empty">尚未解析到干扰波密钥帧。</p>
+          </div>
+        </section>
+
+        <section class="panel referee-panel">
+          <div class="panel-head">
+            <h2>裁判系统</h2>
+            <span id="serialBadge" class="badge unknown">待检测</span>
+          </div>
+          <div class="kv" id="refereeState"></div>
+        </section>
+      </section>
+    </main>
+    </section>
+
+    <section id="radarPage" class="app-page radar-page active">
+      <div class="radar-layout">
+        <aside class="panel radar-health-rail">
+          <div class="panel-head radar-health-head">
+            <h2>健康状态</h2>
+            <span id="radarOverallBadge" class="badge unknown">待检测</span>
+          </div>
+          <div id="radarHealthCounts" class="health-counts"></div>
+          <section class="health-section issue-section" aria-labelledby="radarIssuesTitle">
+            <div class="health-section-head">
+              <h3 id="radarIssuesTitle">异常 / 待检测</h3>
+              <span class="muted">严重度排序</span>
+            </div>
+            <div id="radarIssueList" class="radar-issue-list"></div>
+          </section>
+        </aside>
+
+        <section class="panel radar-map-panel">
+          <div class="panel-head radar-map-head">
+            <div>
+              <h2 id="radarMapOrientation">赛场坐标</h2>
+              <span id="radarStreamStatus" class="muted">SSE 未连接</span>
+            </div>
+            <div class="layer-switches" aria-label="地图图层">
+              <label><input id="showFinal" type="checkbox" checked />最终</label>
+              <label><input id="showVision" type="checkbox" checked />视觉</label>
+              <label><input id="showRadio" type="checkbox" checked />无线电</label>
+              <label><input id="showLabels" type="checkbox" checked />坐标文字</label>
+            </div>
+          </div>
+          <div id="radarMapViewport" class="radar-map-viewport">
+            <div id="radarMapStage" class="radar-map-stage">
+              <img id="radarMapImage" src="/image_2026_red_bottom.jpg" alt="RoboMaster 2026 赛场地图，红方在下" draggable="false" />
+              <canvas id="radarMapCanvas" width="1500" height="2800"></canvas>
+              <div id="radarTooltip" class="radar-tooltip" hidden></div>
+            </div>
+          </div>
+          <div class="radar-legend">
+            <span><i class="shape final"></i>最终发送</span>
+            <span><i class="shape vision"></i>视觉</span>
+            <span><i class="shape radio"></i>无线电</span>
+            <span><i class="shape expired"></i>无线电过期影子</span>
+          </div>
+        </section>
+
+        <aside class="radar-sidebar">
+          <section class="panel robot-table-panel">
+            <div class="panel-head"><h2>机器人坐标对照</h2><span class="muted">无线电上限 1.0 秒</span></div>
+            <div class="radar-table-scroll">
+              <table class="radar-table">
+                <thead><tr><th>机器人</th><th>视觉 / 状态</th><th>无线电 / 年龄</th><th>最终 / 来源</th></tr></thead>
+                <tbody id="radarRobotRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel radar-strategy-panel">
+            <div class="panel-head"><h2>雷达策略数据</h2><span id="strategyBadge" class="badge unknown">等待裁判</span></div>
+            <div id="radarStrategy" class="strategy-grid"></div>
+          </section>
+
+          <section class="panel radar-serial-panel">
+            <div class="panel-head"><h2>裁判串口</h2><span id="radarSerialBadge" class="badge unknown">待检测</span></div>
+            <div id="radarSerialSummary" class="kv"></div>
+            <details class="radar-diagnostics">
+              <summary>展开串口诊断</summary>
+              <div id="radarSerialDiagnostics" class="kv"></div>
+            </details>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 高级抽屉：配置 / 模块 / 进程 / 日志 -->
+    <div id="drawer" class="drawer" hidden>
+      <div class="drawer-panel">
+        <div class="drawer-head">
+          <h2>配置与运维</h2>
+          <button id="drawerClose" type="button">关闭</button>
+        </div>
+        <div class="drawer-tabs">
+          <button class="dtab active" data-dtab="config" type="button">比赛配置</button>
+          <button class="dtab" data-dtab="modules" type="button">模块状态</button>
+          <button class="dtab" data-dtab="processes" type="button">链路进程</button>
+          <button class="dtab" data-dtab="events" type="button">故障与日志</button>
+        </div>
+        <div class="drawer-body">
+          <div class="dtab-page active" id="dtab-config">
+            <p class="muted" style="margin:0 0 10px">红蓝方 / 干扰等级已移至顶部实时控制栏，可运行中切换。</p>
+            <div class="form-grid">
+              <label>裁判串口<input id="refereePort" spellcheck="false" /></label>
+              <label>RX1 信息波 URI<input id="rx1Uri" spellcheck="false" /></label>
+              <label>RX2 干扰波 URI<input id="rx2Uri" spellcheck="false" /></label>
+              <label>波特率<input id="refereeBaudrate" type="number" min="9600" max="3000000" /></label>
+            </div>
+            <div class="drawer-actions">
+              <button id="saveConfigBtn" type="button" class="primary">保存到 config.yaml</button>
+              <button id="clearBtn" type="button" class="danger">清空状态</button>
+            </div>
+            <div class="kv" id="frequencyPlan"></div>
+          </div>
+          <div class="dtab-page" id="dtab-modules">
+            <div id="nodeGrid" class="card-grid"></div>
+          </div>
+          <div class="dtab-page" id="dtab-processes">
+            <div id="processGrid" class="card-grid"></div>
+          </div>
+          <div class="dtab-page" id="dtab-events">
+            <div id="eventList" class="event-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/app.js?v=rx-20260730-link-recovery-v12"></script>
+  </body>
+</html>

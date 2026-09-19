@@ -1,4 +1,5 @@
 import json
+import socket
 import time
 import unittest
 
@@ -120,6 +121,72 @@ class RefereeTransportTests(unittest.TestCase):
 
         self.assertEqual(valid_names, {'B1', 'R1'})
         self.assertEqual(occlusion_names, {'R1'})
+
+    def test_udp_sidecar_round_trip_covers_telemetry_command_and_referee_state(self):
+        bridge = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        bridge.bind(('127.0.0.1', 0))
+        bridge.settimeout(1.0)
+        callbacks = []
+        transport = RadioRosTransport(
+            'R',
+            on_referee_message=lambda kind, payload: callbacks.append((kind, payload)),
+            radio_config={
+                'bridge_backend': 'udp',
+                'vision_bind_host': '127.0.0.1',
+                'vision_bind_port': 0,
+                'bridge_host': '127.0.0.1',
+                'bridge_port': bridge.getsockname()[1],
+            },
+        )
+        try:
+            transport.start()
+            vision_address = transport._udp_socket.getsockname()
+
+            transport.publish_telemetry({'schema': 'transistor.radar.telemetry.v1'})
+            telemetry = json.loads(bridge.recvfrom(65535)[0])
+            self.assertEqual(telemetry['channel'], 'telemetry')
+
+            self.assertEqual(transport.request_double_vulnerability('udp-1'), 'udp-1')
+            command = json.loads(bridge.recvfrom(65535)[0])
+            self.assertEqual(command['channel'], 'radar_cmd')
+            self.assertEqual(command['payload']['schema'], 'transistor.radar.command.v1')
+
+            for channel, payload in (
+                ('bridge_status', {'ready': True}),
+                ('referee_bridge', {
+                    'type': 'DartStatus',
+                    'payload': {'selected_target': 2},
+                }),
+                ('tx_frames', {
+                    'source': 'algorithm_radar_cmd_topic',
+                    'request_id': 'udp-1',
+                    'written': True,
+                }),
+                ('tx_frames', {
+                    'cmd_id': 0x0305,
+                    'cmd_hex': '0x0305',
+                    'dry_run': True,
+                    'written': False,
+                }),
+            ):
+                bridge.sendto(
+                    json.dumps({'channel': channel, 'payload': payload}).encode(),
+                    vision_address,
+                )
+
+            deadline = time.time() + 1.0
+            successes = []
+            while time.time() < deadline:
+                successes.extend(transport.consume_successful_requests())
+                if callbacks and successes and transport.snapshot()['last_map_ack']:
+                    break
+                time.sleep(0.01)
+            self.assertEqual(callbacks, [('DartStatus', {'selected_target': 2})])
+            self.assertTrue(transport.snapshot()['radio_online'])
+            self.assertEqual(transport.snapshot()['last_map_ack']['cmd_id'], 0x0305)
+        finally:
+            transport.close()
+            bridge.close()
 
 
 if __name__ == '__main__':

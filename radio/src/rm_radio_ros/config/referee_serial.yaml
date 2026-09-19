@@ -1,0 +1,33 @@
+rm_referee_serial_node:
+  ros__parameters:
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    dry_run: true
+    bridge_topic: /rm_gfsk_node/referee_bridge
+    radar_cmd_topic: /rm_radar_algorithm/radar_cmd
+    sender_id: 9
+    receiver_id: 0x8080
+    auto_send_radar_cmd: true
+    password_verify_cooldown_sec: 10.0
+    require_can_change_password_for_update: true
+    radar_client_max_rate_hz: 5.0
+    auto_send_invincible_targets: true
+    invincible_targets_data_cmd_id: 0x0234
+    invincible_targets_send_rate_hz: 3.0
+    invincible_targets_freshness_sec: 1.0
+    exclusive_port_lock: true
+    require_serial_open_on_start: false
+    auto_interference_level: false
+    auto_rx_interference_level: true
+    apply_referee_level_only_when_running: false
+    single_rx_auto_broadcast_after_level3: false
+    single_rx_auto_allow_return_to_interference: true
+    referee_level_confirm_count: 2
+    radio_side: red
+    auto_detect_radio_side: true
+    interference_level: 1
+    interference_control_topic: /rm_ganraoyuan_node/setters_json
+    interference_rx_control_topic: /rm_gfsk_interference_node/setters_json
+    read_period_sec: 0.01
+    status_period_sec: 1.0
+    frame_timeout_sec: 2.0

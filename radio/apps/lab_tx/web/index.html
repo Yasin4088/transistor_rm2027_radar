@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LabTX 调试控制台</title>
+    <link rel="stylesheet" href="./styles.css?v=tx-20260716-protocol-ranges" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <h1>LabTX 调试控制台</h1>
+        <p id="serverLine">连接中…</p>
+      </div>
+      <label class="confirm-switch">
+        <input id="labConfirm" type="checkbox" />
+        <span>实验室射频安全确认</span>
+      </label>
+    </header>
+
+    <main class="layout">
+      <!-- 两路独立发射开关 -->
+      <section class="tx-cards">
+        <!-- 信息波 -->
+        <article class="tx-card" id="broadcastCard" data-wave="broadcast">
+          <div class="tx-card-top">
+            <div class="tx-title">
+              <h2>信息波</h2>
+              <span class="tx-sub">0x0A01~0x0A05 · 己方基座广播</span>
+            </div>
+            <span id="broadcastState" class="tx-state off">未发射</span>
+          </div>
+          <div class="tx-metrics" id="broadcastMetrics"></div>
+          <label id="broadcastAutoChangeLabel" class="auto-data-switch">
+            <input id="broadcastAutoChange" type="checkbox" />
+            <span>
+              <strong>发射时自动变化命令数据</strong>
+              <small>每 100 ms 为已启用命令生成新载荷，并重新计算 CRC</small>
+            </span>
+          </label>
+          <div class="tx-actions">
+            <button id="broadcastToggle" type="button" class="toggle-btn off">开始发射</button>
+            <button id="broadcastRandom" type="button" class="ghost">🎲 随机数据</button>
+            <button id="broadcastEdit" type="button" class="ghost">编辑数据</button>
+          </div>
+        </article>
+
+        <!-- 干扰波 -->
+        <article class="tx-card" id="interferenceCard" data-wave="interference">
+          <div class="tx-card-top">
+            <div class="tx-title">
+              <h2>干扰波</h2>
+              <span class="tx-sub">0x0A06 密钥 · 6 位 ASCII</span>
+            </div>
+            <span id="interferenceState" class="tx-state off">未发射</span>
+          </div>
+          <div class="tx-metrics" id="interferenceMetrics"></div>
+          <div class="tx-inline">
+            <label>干扰等级
+              <select id="level">
+                <option value="1">一级</option>
+                <option value="2">二级</option>
+                <option value="3">三级</option>
+              </select>
+            </label>
+            <label>0x0A06 密钥
+              <div class="pw-row">
+                <input id="password" maxlength="6" value="R1L001" />
+                <button id="interferenceRandom" type="button" class="ghost">🎲</button>
+              </div>
+            </label>
+          </div>
+          <p class="tx-hint" id="interferenceHint">发射中修改等级/密钥将热切换，无需停发。</p>
+          <div class="tx-actions">
+            <button id="interferenceToggle" type="button" class="toggle-btn off">开始发射</button>
+            <button id="interferenceApply" type="button" class="ghost" disabled>应用切换</button>
+          </div>
+        </article>
+      </section>
+
+      <!-- 链路配置（精简） -->
+      <section class="panel config-panel">
+        <div class="panel-head"><h2>链路配置</h2></div>
+        <div class="field two">
+          <label>阵营
+            <select id="side">
+              <option value="blue">蓝方</option>
+              <option value="red">红方</option>
+            </select>
+          </label>
+          <label>TX 采样率
+            <input id="fourTxSampleRate" type="number" min="1000000" max="1000000" step="1" value="1000000" readonly />
+          </label>
+        </div>
+        <div class="device-grid">
+          <article class="device-card">
+            <div class="device-title"><strong>信息波 TX</strong><span>Pluto / AD9361</span></div>
+            <div id="broadcastTxStatus" class="device-status unknown">未检测</div>
+            <label>URI<input id="broadcastTxUri" value="ip:192.168.2.1" /></label>
+            <label>衰减 dB<input id="broadcastTxAttenuation" type="number" min="0" max="89.75" step="0.25" value="61" /></label>
+          </article>
+          <article class="device-card">
+            <div class="device-title"><strong>干扰波 TX</strong><span>Pluto / AD9361</span></div>
+            <div id="interferenceTxStatus" class="device-status unknown">未检测</div>
+            <label>URI<input id="interferenceTxUri" value="" /></label>
+            <label>衰减 dB<input id="interferenceTxAttenuation" type="number" min="0" max="89.75" step="0.25" value="11" /></label>
+          </article>
+        </div>
+        <div class="config-actions">
+          <button id="checkFourSdrBtn" type="button">检测 SDR</button>
+        </div>
+        <div id="sdrStatus" class="status-list"></div>
+      </section>
+    </main>
+
+    <!-- 消息浮条 -->
+    <div id="toast" class="toast" hidden></div>
+
+    <!-- 编辑数据抽屉 -->
+    <div id="drawer" class="drawer" hidden>
+      <div class="drawer-panel">
+        <div class="drawer-head">
+          <h2>信息波数据编辑</h2>
+          <div>
+            <button id="drawerRandom" type="button" class="ghost">🎲 随机</button>
+            <button id="drawerClose" type="button">关闭</button>
+          </div>
+        </div>
+        <div class="cmds" id="enabledCmds"></div>
+        <div class="drawer-tabs">
+          <button class="dtab active" data-dtab="positions" type="button">坐标</button>
+          <button class="dtab" data-dtab="hp" type="button">血量</button>
+          <button class="dtab" data-dtab="bullets" type="button">发弹量</button>
+          <button class="dtab" data-dtab="economy" type="button">经济</button>
+          <button class="dtab" data-dtab="buffs" type="button">增益</button>
+        </div>
+        <div class="drawer-body">
+          <div class="dtab-page active" id="dtab-positions"><div class="grid-table robot-table" id="positionsTable"></div></div>
+          <div class="dtab-page" id="dtab-hp"><div class="grid-table value-table" id="hpTable"></div></div>
+          <div class="dtab-page" id="dtab-bullets"><div class="grid-table value-table" id="bulletsTable"></div></div>
+          <div class="dtab-page" id="dtab-economy">
+            <div class="field three">
+              <label>剩余金币<input id="remainingCoins" type="number" min="0" max="65535" step="1" /></label>
+              <label>总金币<input id="totalCoins" type="number" min="0" max="65535" step="1" /></label>
+              <label>占领位图<input id="occupationBits" /></label>
+            </div>
+          </div>
+          <div class="dtab-page" id="dtab-buffs">
+            <div class="grid-table buff-table" id="buffTable"></div>
+            <label class="sentry-mode">哨兵姿态（1-6）<input id="sentryMode" type="number" min="1" max="6" step="1" /></label>
+          </div>
+        </div>
+        <div class="drawer-foot">
+          <button id="drawerApply" type="button" class="primary">保存</button>
+          <span class="muted">发射中保存将热切换数据。</span>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js?v=tx-20260716-protocol-ranges"></script>
+  </body>
+</html>

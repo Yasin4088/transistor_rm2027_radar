@@ -142,8 +142,14 @@ serial: # 串口
   timeout: 1
 
 referee:
-  # 比赛默认通过同机 ROS2 与 transistor-radar-radio 通信；仅显式选择 legacy_serial 才打开本项目串口。
-  transport: 'legacy_serial'  # radio_ros / legacy_serial
+  # 无线电后端使用系统 Python 3.10/ROS2 Humble，视觉使用 Python 3.12 venv；
+  # 两个进程通过仅本机可访问的 UDP sidecar 桥接，避免 rclpy ABI 冲突。
+  transport: 'radio_ros'  # radio_ros / legacy_serial
+  bridge_backend: 'udp'  # udp（推荐）/ direct_ros（仅当视觉 Python 可导入 rclpy）
+  vision_bind_host: '127.0.0.1'
+  vision_bind_port: 37601
+  bridge_host: '127.0.0.1'
+  bridge_port: 37602
   telemetry_rate_hz: 20.0  # ROS2 内部同步；裁判 0x0305 仍由无线电侧独立限为 4.8 Hz
 
 filter:

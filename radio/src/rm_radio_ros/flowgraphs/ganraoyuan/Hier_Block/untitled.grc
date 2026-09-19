@@ -1,0 +1,376 @@
+options:
+  parameters:
+    author: ''
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: ''
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: hb
+    hier_block_src_path: '.:'
+    id: jiang
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: prompt
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: block
+    window_size: (1000,1000)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [8, 8]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: SOF
+  id: variable
+  parameters:
+    comment: "\u6570\u636E\u5E27\n\u8D77\u59CB\u5B57\u8282\n\u56FA\u5B9A0xA5"
+    value: '0xA5'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1184, 296.0]
+    rotation: 0
+    state: enabled
+- name: data
+  id: variable
+  parameters:
+    comment: "[payload_size]\u4F4D\u6570\u636E"
+    value: '[random.getrandbits(8) for i in range(payload_size)]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [448, 504.0]
+    rotation: 0
+    state: enabled
+- name: header
+  id: variable
+  parameters:
+    comment: "frame_header\n\u6CA1\u52A0crc\n4\u5B57\u8282"
+    value: '[SOF,0x00,payload_size,seq]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [848, 300.0]
+    rotation: 0
+    state: enabled
+- name: kongkou
+  id: variable
+  parameters:
+    comment: ''
+    value: Access_Code + [0x00, 0x0f, 0x00, 0x0f]
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [88, 308.0]
+    rotation: 0
+    state: enabled
+- name: payload
+  id: variable
+  parameters:
+    comment: "\u6570\u636E\u6BB5\n\u4E5F\u6CA1\u52A0crc\n2+nbyte"
+    value: com_id+data
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [88, 504.0]
+    rotation: 0
+    state: enabled
+- name: seq
+  id: variable
+  parameters:
+    comment: "\u5305\u5E8F\u53F7"
+    value: '0x01'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1304, 296.0]
+    rotation: 0
+    state: enabled
+- name: Access_Code
+  id: parameter
+  parameters:
+    alias: ''
+    comment: ''
+    hide: none
+    label: "\u524D\u5BFC\u7801"
+    short_id: ''
+    type: ''
+    value: '[0x2F, 0x6F, 0x4C, 0x74, 0xB9, 0x14, 0x49, 0x2E]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [368, 304.0]
+    rotation: 0
+    state: enabled
+- name: Period
+  id: parameter
+  parameters:
+    alias: ''
+    comment: ''
+    hide: none
+    label: "\u89E6\u53D1\u9891\u7387(ms)"
+    short_id: ''
+    type: intx
+    value: '10'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [392, 16.0]
+    rotation: 0
+    state: enabled
+- name: blocks_message_strobe_0
+  id: blocks_message_strobe
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: "4\u5B57\u8282"
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    msg: pmt.cons(pmt.PMT_NIL,pmt.init_u8vector(4,header))
+    period: Period
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [848, 208.0]
+    rotation: 0
+    state: enabled
+- name: blocks_message_strobe_0_0
+  id: blocks_message_strobe
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: "2+\u5305\u957F\u5B57\u8282"
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    msg: pmt.cons(pmt.PMT_NIL,pmt.init_u8vector(8,payload))
+    period: Period
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [88, 408.0]
+    rotation: 0
+    state: enabled
+- name: blocks_message_strobe_0_1
+  id: blocks_message_strobe
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: "12\u5B57\u8282"
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    msg: pmt.cons(pmt.PMT_NIL,pmt.init_u8vector(12,kongkou))
+    period: Period
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [88, 216.0]
+    rotation: 0
+    state: enabled
+- name: com_id
+  id: parameter
+  parameters:
+    alias: ''
+    comment: ''
+    hide: none
+    label: "\u547D\u4EE4\u7801"
+    short_id: ''
+    type: ''
+    value: '[0x0A,0x01]'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [304, 504.0]
+    rotation: 0
+    state: enabled
+- name: digital_crc_append_0
+  id: digital_crc_append
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: "+1\u5B57\u8282"
+    final_xor: '0x00'
+    initial_value: '0xFF'
+    input_reflected: 'False'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_bits: '8'
+    poly: '0x31'
+    result_reflected: 'False'
+    skip_header_bytes: '0'
+    swap_endianness: 'False'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1144, 216.0]
+    rotation: 0
+    state: enabled
+- name: digital_crc_append_0_0
+  id: digital_crc_append
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: "+2\u5B57\u8282"
+    final_xor: '0x0000'
+    initial_value: '0xFFFF'
+    input_reflected: 'False'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_bits: '16'
+    poly: '0x1189'
+    result_reflected: 'False'
+    skip_header_bytes: '0'
+    swap_endianness: 'True'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [376, 416.0]
+    rotation: 0
+    state: enabled
+- name: import_0
+  id: import
+  parameters:
+    alias: ''
+    comment: ''
+    imports: import numpy
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [168, 8.0]
+    rotation: 0
+    state: enabled
+- name: import_0_0
+  id: import
+  parameters:
+    alias: ''
+    comment: ''
+    imports: import random
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [168, 64.0]
+    rotation: 0
+    state: enabled
+- name: import_0_1
+  id: import
+  parameters:
+    alias: ''
+    comment: ''
+    imports: from cmath import exp, pi
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [160, 120.0]
+    rotation: 0
+    state: true
+- name: pad_sink_0_0
+  id: pad_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    label: header
+    num_streams: '1'
+    optional: 'False'
+    type: message
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1336, 216.0]
+    rotation: 0
+    state: enabled
+- name: pad_sink_0_0_0
+  id: pad_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    label: payload
+    num_streams: '1'
+    optional: 'False'
+    type: message
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [592, 416.0]
+    rotation: 0
+    state: enabled
+- name: pad_sink_0_0_1
+  id: pad_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    label: access
+    num_streams: '1'
+    optional: 'False'
+    type: message
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [576, 224.0]
+    rotation: 0
+    state: enabled
+- name: payload_size
+  id: parameter
+  parameters:
+    alias: ''
+    comment: ''
+    hide: none
+    label: "\u5305\u957F"
+    short_id: ''
+    type: ''
+    value: '6'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1072, 296.0]
+    rotation: 0
+    state: enabled
+
+connections:
+- [blocks_message_strobe_0, strobe, digital_crc_append_0, in]
+- [blocks_message_strobe_0_0, strobe, digital_crc_append_0_0, in]
+- [blocks_message_strobe_0_1, strobe, pad_sink_0_0_1, in]
+- [digital_crc_append_0, out, pad_sink_0_0, in]
+- [digital_crc_append_0_0, out, pad_sink_0_0_0, in]
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.12.0

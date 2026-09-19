@@ -1962,7 +1962,10 @@ def handle_radio_referee_message(message_type, payload):
 
 if referee_mode == 'radio_ros':
     referee_transport = RefereeTransport.create(
-        referee_mode, state, on_referee_message=handle_radio_referee_message
+        referee_mode,
+        state,
+        on_referee_message=handle_radio_referee_message,
+        radio_config=config.get('referee', {}),
     )
     try:
         referee_transport.start()

@@ -1,0 +1,11 @@
+{
+  "setters": {
+    "center_f": 432200000,
+    "BW_ganrao": 940000,
+    "attend_gr": 60,
+    "access": "interference",
+    "cmd_id": "0x0A06",
+    "payload_data": [70, 73, 76, 69, 48, 49],
+    "Period": 100
+  }
+}
