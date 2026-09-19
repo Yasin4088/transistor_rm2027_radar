@@ -65,6 +65,18 @@ LabTX 不会被比赛启动器启动。发射前必须确认合法频率、假�
 同轴连接和功率设置，并显式设置
 `RM_RADIO_LAB_TX_ANTENNA_CONFIRM=true`。
 
+衰减器和 SMA 同轴线到位后，首次真实解码只测信息波：
+
+```bash
+RM_RADIO_LAB_TX_ANTENNA_CONFIRM=true \
+GENERATED_LINK_TEST_CASES=broadcast \
+./radio/apps/lab_tx/run_generated_link_test.sh
+```
+
+此脚本默认使用 NanoSDR-B (`192.168.3.1`) 发射，PZSDR
+(`192.168.1.10`) 接收，并自动统计有效帧、CRC 和 `0x0A01~0x0A05`
+解析结果。没有串接外部衰减器时不得运行。
+
 ## 回退
 
 集成前代码固定在 Git 分支：

@@ -3,11 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-export RX_URI="${RX_URI:-ip:192.168.9.110}"
+export RX_URI="${RX_URI:-ip:192.168.1.10}"
 export RM_RADIO_SIDE="${RM_RADIO_SIDE:-blue}"
 export INTERFERENCE_LEVEL="${INTERFERENCE_LEVEL:-1}"
 export TX_RF_PORT="${TX_RF_PORT:-A}"
-export RX_RF_PORT="${RX_RF_PORT:-B_BALANCED}"
+export RX_RF_PORT="${RX_RF_PORT:-A_BALANCED}"
 export BROADCAST_RX_GAIN_MODE="${BROADCAST_RX_GAIN_MODE:-fast_attack}"
 export INTERFERENCE_RX_GAIN_MODE="${INTERFERENCE_RX_GAIN_MODE:-fast_attack}"
 export BROADCAST_RX_GAIN="${BROADCAST_RX_GAIN:-20}"

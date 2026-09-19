@@ -339,17 +339,26 @@ class RadioRosTransport:
                 if self._last_bridge_heartbeat_at is not None
                 else None
             )
+            bridge_status = deepcopy(self._last_bridge_status) or {}
+            bridge_online = bridge_age is not None and bridge_age <= 2.5
             if self._bridge_backend == 'udp':
-                radio_online = bridge_age is not None and bridge_age <= 2.5
+                modules = bridge_status.get('modules') or {}
+                radio_online = bridge_online and all(
+                    isinstance(modules.get(name), dict)
+                    and float(modules[name].get('age_sec', 999.0)) <= 2.5
+                    for name in ('broadcast_rx', 'interference_rx')
+                )
             else:
                 radio_online = status_age is not None and status_age <= 2.0
+            bridge_status_error = str(bridge_status.get('last_error') or '').strip()
             return {
                 'mode': self.mode,
                 'connected': self._node is not None,
                 'bridge_backend': self._bridge_backend,
+                'bridge_online': bridge_online,
                 'radio_online': radio_online,
                 'bridge_status_age_sec': bridge_age,
-                'bridge_status': deepcopy(self._last_bridge_status),
+                'bridge_status': bridge_status,
                 'radio_status_age_sec': status_age,
                 'last_referee_packet_at': self._last_referee_packet_at,
                 'pending_requests': deepcopy(self._pending),
@@ -357,7 +366,7 @@ class RadioRosTransport:
                 'last_map_ack': deepcopy(self._last_map_ack),
                 'referee_status': status,
                 'strategy': deepcopy(self._strategy),
-                'last_error': self._last_error or referee_status_error,
+                'last_error': self._last_error or bridge_status_error or referee_status_error,
             }
 
     def close(self) -> None:

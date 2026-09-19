@@ -152,7 +152,13 @@ class RefereeTransportTests(unittest.TestCase):
             self.assertEqual(command['payload']['schema'], 'transistor.radar.command.v1')
 
             for channel, payload in (
-                ('bridge_status', {'ready': True}),
+                ('bridge_status', {
+                    'ready': True,
+                    'modules': {
+                        'broadcast_rx': {'age_sec': 0.1},
+                        'interference_rx': {'age_sec': 0.1},
+                    },
+                }),
                 ('referee_bridge', {
                     'type': 'DartStatus',
                     'payload': {'selected_target': 2},
