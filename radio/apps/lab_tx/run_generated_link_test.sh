@@ -18,6 +18,7 @@ export RM_RADIO_IIO_PREINIT="${RM_RADIO_IIO_PREINIT:-true}"
 source "$SCRIPT_DIR/env.sh"
 
 require_lab_tx_confirmation
+require_cabled_loop_attenuation
 
 # This test reuses one explicitly selected TX sequentially for its cases.  Do
 # not silently claim a generic usb: context, which may be the information SDR.

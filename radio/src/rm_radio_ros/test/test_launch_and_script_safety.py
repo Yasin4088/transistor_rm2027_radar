@@ -167,6 +167,7 @@ def test_all_real_radio_entrypoints_reject_known_bad_gnuradio_runtime():
     assert '"ldd", str(extension)' in _read_root(audit_path)
     for relative in (
         'apps/match_rx/start.sh',
+        'apps/lab_tx/start_broadcast_tx.sh',
         'apps/lab_tx/start_dual_tx.sh',
         'apps/lab_tx/start_interference_tx.sh',
         'apps/lab_tx/start_iq_replay_tx.sh',
@@ -867,3 +868,47 @@ def test_algorithm_wrapper_is_archived_and_match_optional():
     assert 'optional_algorithm.sh' in match_start
     assert 'RM_ALGO_DISABLE_REFEREE_SERIAL' in optional
     assert 'run_algorithm.py' in optional
+
+
+def test_single_broadcast_tx_and_hardware_loop_are_fail_closed():
+    env = _read_root('apps/lab_tx/env.sh')
+    broadcast = _read_root('apps/lab_tx/start_broadcast_tx.sh')
+    generated = _read_root('apps/lab_tx/run_generated_link_test.sh')
+    hardware = _read_root('../scripts/test_hardware_radio_loop.sh')
+    verifier = _read_root('../scripts/verify_hardware_radio_ros.py')
+
+    assert 'require_cabled_loop_attenuation()' in env
+    assert 'RM_RADIO_CABLED_LOOP_CONFIRM' in env
+    assert 'RM_RADIO_EXTERNAL_ATTENUATION_DB' in env
+    assert 'local minimum="40"' in env
+    assert 'value >= minimum' in env
+    assert 'require_cabled_loop_attenuation' in generated
+
+    assert 'require_lab_tx_confirmation' in broadcast
+    assert 'require_cabled_loop_attenuation' in broadcast
+    assert 'check_gnuradio_runtime.py' in broadcast
+    assert 'build_tx_setters' in broadcast
+    assert '_default_broadcast_config' in broadcast
+    assert 'rm_broadcast_tx_node' in broadcast
+    assert 'rm_interference_tx_node' not in broadcast
+    assert 'lab_tx_hard_mute_one_and_verify "$BROADCAST_TX_URI"' in broadcast
+    assert 'trap broadcast_tx_cleanup EXIT' in broadcast
+
+    assert 'RM_RADIO_DRY_RUN=false' in hardware
+    assert 'REFEREE_DRY_RUN="$referee_dry_run"' in hardware
+    assert 'RADAR_AUTO_DOUBLE_ENABLED=false' in hardware
+    assert 'AUTO_SEND_INVINCIBLE_TARGETS=false' in hardware
+    assert 'RM_RADIO_REAL_REFEREE_CONFIRM' in hardware
+    assert 'RX1_URI, RX2_URI, and BROADCAST_TX_URI must identify three distinct SDRs' in hardware
+    assert 'iio_info -u "$uri"' in hardware
+    assert 'start_broadcast_tx.sh' in hardware
+    assert 'verify_hardware_radio_ros.py' in hardware
+    assert 'cleanup: stop TX and verify hard mute before RX shutdown' in hardware
+    assert 'lab_tx_hard_mute_one_and_verify "$BROADCAST_TX_URI"' in hardware
+
+    assert "'/rm_gfsk_node/frames'" in verifier
+    assert "'/rm_gfsk_node/referee_bridge'" in verifier
+    assert "'/rm_radar_integration/status'" in verifier
+    assert "'/rm_referee_serial_node/tx_frames'" in verifier
+    assert "state['decoded_0a01_count'] > 0" in verifier
+    assert "state['fusion_radio_source_count'] > 0" in verifier

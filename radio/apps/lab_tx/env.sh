@@ -160,6 +160,32 @@ MSG
   return 2
 }
 
+require_cabled_loop_attenuation() {
+  local confirm="${RM_RADIO_CABLED_LOOP_CONFIRM:-false}"
+  local attenuation="${RM_RADIO_EXTERNAL_ATTENUATION_DB:-}"
+  local minimum="40"
+
+  if [[ "$confirm" != "true" ]]; then
+    cat >&2 <<'MSG'
+Refusing to start a cabled RF loop test.
+
+Remove every antenna and connect TX -> external attenuator(s) -> RX by 50-ohm
+coax. Then set RM_RADIO_CABLED_LOOP_CONFIRM=true.
+MSG
+    return 2
+  fi
+  if [[ ! "$attenuation" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    echo "RM_RADIO_EXTERNAL_ATTENUATION_DB must be numeric" >&2
+    return 2
+  fi
+  if ! awk -v value="$attenuation" -v minimum="$minimum" \
+    'BEGIN { exit !(value >= minimum) }'; then
+    echo "Refusing cabled RF test: external attenuation ${attenuation} dB is below required ${minimum} dB" >&2
+    return 2
+  fi
+  echo "[lab-tx] cabled loop confirmed: external attenuation=${attenuation} dB (minimum=${minimum} dB)"
+}
+
 # 列出与本仓库相关、仍在运行的电台节点/发射进程 PID（排除自身与 grep）。
 # 用法：rm_radio_residual_pids "<关键字1>" "<关键字2>" ...
 rm_radio_residual_pids() {

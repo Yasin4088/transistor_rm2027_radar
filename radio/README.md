@@ -69,6 +69,8 @@ LabTX 不会被比赛启动器启动。发射前必须确认合法频率、假�
 
 ```bash
 RM_RADIO_LAB_TX_ANTENNA_CONFIRM=true \
+RM_RADIO_CABLED_LOOP_CONFIRM=true \
+RM_RADIO_EXTERNAL_ATTENUATION_DB=40 \
 GENERATED_LINK_TEST_CASES=broadcast \
 ./radio/apps/lab_tx/run_generated_link_test.sh
 ```
@@ -76,6 +78,46 @@ GENERATED_LINK_TEST_CASES=broadcast \
 此脚本默认使用 NanoSDR-B (`192.168.3.1`) 发射，PZSDR
 (`192.168.1.10`) 接收，并自动统计有效帧、CRC 和 `0x0A01~0x0A05`
 解析结果。没有串接外部衰减器时不得运行。
+
+## 三机真实闭环验收
+
+完整的台架链路是：
+
+```text
+Nano-B TX -- 50Ω SMA同轴线 -- 外部衰减器总计≥40dB -- PZSDR RX1
+Nano-A RX2 独立接入系统（本项主要确认三机可同时在线）
+PZSDR RX1 -> 0x0A01解码 -> RadarInfoToClient -> 坐标融合 -> 0x0305
+```
+
+参与同轴闭环的端口全部拆掉天线。衰减值可以由两个 20 dB 固定衰减器串联
+得到；脚本按填写的总外部衰减量校验，板内 TX 衰减不计入这 40 dB。
+
+默认验收会真实接收和发射，但 `0x0305` 只走裁判串口 dry-run：
+
+```bash
+RM_RADIO_LAB_TX_ANTENNA_CONFIRM=true \
+RM_RADIO_CABLED_LOOP_CONFIRM=true \
+RM_RADIO_EXTERNAL_ATTENUATION_DB=40 \
+./scripts/test_hardware_radio_loop.sh
+```
+
+脚本先确认三块 SDR 的 URI 均可达且互不相同，然后只启动 Nano-B 的信息波
+发射，验证以下四级证据：物理解出的 `0x0A01`、`RadarInfoToClient`、融合结果
+实际选择 `radio` 坐标，以及裁判节点生成 `0x0305` dry-run ACK。任何退出路径
+都会先终止 TX，再把 Nano-B 设为最大硬件衰减并关闭 TX LO。
+
+只有裁判系统已连接并确认允许写串口时，才额外执行：
+
+```bash
+RM_RADIO_LAB_TX_ANTENNA_CONFIRM=true \
+RM_RADIO_CABLED_LOOP_CONFIRM=true \
+RM_RADIO_EXTERNAL_ATTENUATION_DB=40 \
+RM_RADIO_REAL_REFEREE_CONFIRM=true \
+./scripts/test_hardware_radio_loop.sh --real-referee
+```
+
+单独启动安全门控后的 Nano-B 信息波 TX，可使用
+`radio/apps/lab_tx/start_broadcast_tx.sh`；它不会启动干扰波 TX。
 
 ## 回退
 
