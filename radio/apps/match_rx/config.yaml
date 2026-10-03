@@ -1,0 +1,167 @@
+# Transistor RM2027 match RX deployment configuration (tracked by Git).
+# Dashboard "保存配置" writes operator-controlled values back to this file.
+# Environment variables are one-shot runtime overrides and are never persisted.
+
+app:
+  host: 127.0.0.1
+  port: 8765
+  # Runtime/service logs are small and must survive reboot on the internal disk.
+  log_root: ~/.local/state/transistor-radio/runtime-logs
+  dry_run: false
+  auto_open_browser: true
+
+radio:
+  side: red
+  interference_level: 1
+  intelligent_mode: true
+  # PZSDR P201Mini (AD9361): primary information-wave receiver.
+  rx1_uri: ip:192.168.1.10
+  # NanoSDR-A (AD9363): interference-wave receiver.
+  rx2_uri: ip:192.168.2.1
+  sample_rate: 2000000
+  rx_rf_port: A_BALANCED
+  # Keep RX1 deterministic under adjacent-channel interference. The launcher
+  # requires manual mode and verifies both mode and gain through AD9361 readback.
+  broadcast_gain_mode: manual
+  broadcast_gain: 32
+  # Deployed AD9361 receivers report hardwaregain_available=[-1 1 73].
+  broadcast_gain_max: 73
+  broadcast_low_pass_hz: 260000
+  interference_gain_mode: fast_attack
+  interference_gain: 20
+  start_after_match_running: false
+
+# This experimental branch runs RX1 continuously through FM discrimination,
+# Gaussian filtering and M&M timing recovery. The old IQ snapshot scanner is
+# retained as a configurable fallback but disabled by default to avoid duplicate
+# frames and a second CPU-heavy decoder. RX2 also uses only its Legacy streaming
+# path; the IQ snapshot decoder remains available as an explicit diagnostic.
+decoder:
+  broadcast:
+    demod_mode: mm
+    frontend_profile: broadcast
+    input_sps: 94
+    iq_snapshot_enabled: false
+    iio_capture_enabled: false
+    iio_capture_only: false
+    capture_seconds: 0.6
+    # Start-to-start cadence. Matching capture_seconds keeps iio_readdev nearly
+    # continuous while the latest-only decoder runs on a separate worker.
+    capture_period_sec: 0.6
+    capture_start_delay_sec: 1.0
+    iq_autotune_mode: off
+    iq_low_pass_hz: 260000
+    iq_sps_values: "92,92.5,93,93.5,94,94.5,95"
+    iq_offset_step: 8
+    iq_max_payloads: 256
+    iq_max_frames: 64
+  interference:
+    demod_mode: legacy
+    frontend_profile: interference
+    input_sps: 94
+    iq_snapshot_enabled: false
+    iq_autotune_mode: quick
+    iq_low_pass_hz: 0
+
+# Chrome is the primary high-rate spectrum/waterfall display. GNU Radio Qt
+# sinks remain available through --native-gui for diagnostics only.
+spectrum:
+  period_sec: 0.04
+  fft_size: 1024
+  bin_count: 256
+  native_gui: false
+  native_spectrum_only: true
+  qt_platform: offscreen
+
+referee:
+  # Prefer a persistent udev symlink on the match machine. Override with
+  # REFEREE_PORT=/dev/ttyUSB0 during bench tests.
+  port: /dev/transistor-referee
+  baudrate: 115200
+  bridge_topic: /rm_gfsk_node/referee_bridge,/rm_gfsk_interference_node/referee_bridge
+  radar_cmd_topic: /rm_radar_algorithm/radar_cmd
+  dry_run: false
+  require_serial_open_on_start: false
+  frame_timeout_sec: 2.0
+  # Team-defined 0x0301 / data_cmd_id 0x0234 message; 3 Hz x 6 receivers = 18 fps.
+  auto_send_invincible_targets: true
+  invincible_targets_data_cmd_id: 564
+  invincible_targets_send_rate_hz: 3.0
+  invincible_targets_freshness_sec: 1.0
+
+# Match recording starts after consecutive referee 0x0001 game_progress=4
+# frames and stops after game_progress=5 plus post_roll_sec. IQ is taken from
+# each receiver's existing filtered stream, so no second process opens the SDR.
+recording:
+  enabled: true
+  auto_start: true
+  # Manifests, config snapshots, event journals and completion markers always
+  # stay on the internal disk. Large IQ has an independent policy below.
+  root: ~/.local/share/transistor-radio/match-records
+  control_topic: /rm_match_recorder/control
+  game_status_topic: /rm_referee_serial_node/game_status
+  start_confirm_frames: 2
+  stop_confirm_frames: 2
+  stop_game_progress: 5
+  post_roll_sec: 10.0
+  max_duration_sec: 900.0
+  finalize_timeout_sec: 5.0
+  iq:
+    # Use the external 2 TB disk when it is mounted read-write; otherwise keep IQ beside
+    # the local metadata. env.sh changes only this IQ root.
+    root: /media/transistor/Resources/transistor-radio-iq
+    mount_point: /media/transistor/Resources
+    fallback_root: ~/.local/share/transistor-radio/match-records
+    min_free_gb: 15.0
+    # The live flowgraph is 2 MS/s. Integer decimation to 1 MS/s plus
+    # block-scaled CI8 cuts the predictable payload to about 2.4 GB per
+    # 10 minutes for both receivers before the optional light zlib gain.
+    output_sample_rate: 1000000
+    segment_sec: 30.0
+    queue_chunks: 64
+    compression: zlib
+    compression_level: 1
+  events:
+    min_free_gb: 0.1
+    compression: zstd
+    compression_level: 1
+    queue_size: 4096
+    topics: "/rm_gfsk_node/status,/rm_gfsk_node/frames,/rm_gfsk_node/referee_bridge,/rm_gfsk_node/setters_json,/rm_gfsk_interference_node/status,/rm_gfsk_interference_node/frames,/rm_gfsk_interference_node/referee_bridge,/rm_gfsk_interference_node/setters_json,/rm_referee_serial_node/status,/rm_referee_serial_node/rx_frames,/rm_referee_serial_node/tx_frames,/rm_referee_serial_node/raw_rx,/rm_referee_serial_node/referee_bridge,/rm_radar_integration/status,/rm_radar_algorithm/telemetry,/rm_radar_algorithm/radar_cmd"
+
+radar_integration:
+  enabled: true
+  auto_sync_side: true
+  send_rate_hz: 4.8
+  state_rate_hz: 20.0
+  vision_timeout_sec: 0.5
+  radio_timeout_sec: 1.0
+  radio_ghost_sec: 2.0
+  telemetry_topic: /rm_radar_algorithm/telemetry
+  auto_double_vulnerability:
+    enabled: true
+    mask_path: bundled
+    # Any one enemy hero/infantry/sentry must remain in the approved ROI.
+    zone_dwell_sec: 3.0
+    # A cumulative drop of at least 100 HP inside a rolling 3 s window is "rapid".
+    hero_hp_drop_amount: 100
+    hero_hp_window_sec: 3.0
+    # Double vulnerability lasts 30 s, so consume/queue all remaining chances
+    # once the match clock reaches the final 30 s.
+    endgame_sec: 30.0
+    referee_timeout_sec: 2.5
+
+# Python 3.12 vision venv <-> Python 3.10 ROS2 Humble sidecar.
+vision_bridge:
+  enabled: true
+  listen_host: 127.0.0.1
+  listen_port: 37602
+  vision_host: 127.0.0.1
+  vision_port: 37601
+
+algorithm:
+  enabled: false
+  allow_failure: true
+  # Optional external algorithm paths are deliberately unset in the portable
+  # deployment baseline. Supply them through an explicit environment file.
+  dir: ""
+  python: ""
