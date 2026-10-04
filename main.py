@@ -481,13 +481,16 @@ def convert_projected_map_point(xy):
 
 
 def add_position_measurement(name, x, y, car_box=None, temporary_dead=False):
-    update_occlusion_hold(name, x, y, car_box, temporary_dead)
-    if isinstance(filter, SlidingWindowFilter):#这里两种端口一样
-        filter.add_data(name, x, y)
-    else:
-        filter.add_data(name, x, y)
+    accepted = filter.add_data(name, x, y)
+    # Only a measurement accepted by the continuity gate may refresh the
+    # fallback cache.  Previously, a rejected multi-metre outlier replaced
+    # the hold cache; once the filter expired, UDP telemetry jumped directly
+    # from the old filtered point to that rejected point.
+    if accepted:
+        update_occlusion_hold(name, x, y, car_box, temporary_dead)
     if compare_filter is not None: #影子寄存器，对比滑动窗口与卡尔曼滤波
         compare_filter.add_data(name, x, y)
+    return accepted
 
 
 def update_occlusion_hold(name, x, y, car_box=None, temporary_dead=False):
@@ -857,10 +860,11 @@ class SlidingWindowFilter:
             if len(self.windows[name]) > 0:
                 last_x, last_y = self.windows[name][-1]
                 if (x - last_x) ** 2 + (y - last_y) ** 2 > self.threshold:
-                    return
+                    return False
 
             self.windows[name].append((x, y))
             self.last_update[name] = time.time()
+            return True
 
     def get_all_data(self):
         with self._lock:
@@ -900,6 +904,9 @@ class HybridGatedKalmanFilter:
                  pred_jump_threshold=100.0,
                  process_noise=1e-5,
                  measurement_noise=1e-1,
+                 reacquire_rejected_count=3,
+                 reacquire_spread_threshold=80.0,
+                 reacquire_max_jump_threshold=250.0,
                  update_guess=True):
         self.prefilter_window = max(1, int(prefilter_window))
         self.prefilter_mode = prefilter_mode
@@ -912,8 +919,12 @@ class HybridGatedKalmanFilter:
         self.kf_filters = {}
         self.last_update = {}
         self.last_raw = {}
+        self.rejected_windows = {}
         self.process_noise = float(process_noise)
         self.measurement_noise = float(measurement_noise)
+        self.reacquire_rejected_count = max(0, int(reacquire_rejected_count))
+        self.reacquire_spread_threshold = max(0.0, float(reacquire_spread_threshold))
+        self.reacquire_max_jump_threshold = max(0.0, float(reacquire_max_jump_threshold))
         self._lock = threading.RLock()
 
     def _ensure_target(self, name):
@@ -926,6 +937,9 @@ class HybridGatedKalmanFilter:
             )
         # 避免新目标在首次 update 前被并发清理线程误判为超时
         self.last_update.setdefault(name, time.time())
+        self.rejected_windows.setdefault(
+            name, deque(maxlen=max(1, self.reacquire_rejected_count))
+        )
 
     def _prefilter_point(self, points):
         xs = [p[0] for p in points]
@@ -933,6 +947,45 @@ class HybridGatedKalmanFilter:
         if self.prefilter_mode == 'mean':
             return float(sum(xs) / len(xs)), float(sum(ys) / len(ys))
         return float(np.median(xs)), float(np.median(ys))
+
+    def _try_reacquire(self, name, x, y, now):
+        """Reset only after a stable, confirmed target repeatedly fails gating."""
+        if self.reacquire_rejected_count <= 0:
+            return False
+        candidates = self.rejected_windows[name]
+        candidates.append((float(x), float(y)))
+        if len(candidates) < self.reacquire_rejected_count:
+            return False
+
+        center_x, center_y = self._prefilter_point(candidates)
+        max_spread2 = max(
+            (px - center_x) ** 2 + (py - center_y) ** 2
+            for px, py in candidates
+        )
+        if max_spread2 > self.reacquire_spread_threshold ** 2:
+            return False
+
+        previous = self.kf_filters[name].get_estimate()
+        if previous is not None and self.reacquire_max_jump_threshold > 0:
+            dx = center_x - previous[0]
+            dy = center_y - previous[1]
+            if dx * dx + dy * dy > self.reacquire_max_jump_threshold ** 2:
+                return False
+
+        self.raw_windows[name].clear()
+        self.raw_windows[name].extend(candidates)
+        self.last_raw[name] = (center_x, center_y)
+        kf_obj = MotionKalman2D(
+            process_noise=self.process_noise,
+            measurement_noise=self.measurement_noise,
+        )
+        kf_obj.update((center_x, center_y))
+        self.kf_filters[name] = kf_obj
+        self.last_update[name] = now
+        candidates.clear()
+        if self.update_guess:
+            guess_list[name] = False
+        return True
 
     def add_data(self, name, x, y):
         with self._lock:
@@ -944,7 +997,7 @@ class HybridGatedKalmanFilter:
                 dx = x - self.last_raw[name][0]
                 dy = y - self.last_raw[name][1]
                 if dx * dx + dy * dy > self.raw_jump_threshold * self.raw_jump_threshold:
-                    return
+                    return self._try_reacquire(name, x, y, now)
 
             self.raw_windows[name].append((x, y))
             self.last_raw[name] = (x, y)
@@ -960,12 +1013,14 @@ class HybridGatedKalmanFilter:
                     pdx = fx - pred[0]
                     pdy = fy - pred[1]
                     if pdx * pdx + pdy * pdy > self.pred_jump_threshold * self.pred_jump_threshold:
-                        return
+                        return self._try_reacquire(name, x, y, now)
 
             kf_obj.update((fx, fy))
             self.last_update[name] = now
+            self.rejected_windows[name].clear()
             if self.update_guess:
                 guess_list[name] = False
+            return True
 
     def get_all_data(self):
         with self._lock:
@@ -991,6 +1046,7 @@ class HybridGatedKalmanFilter:
                 self.kf_filters.pop(name, None)
                 self.last_update.pop(name, None)
                 self.last_raw.pop(name, None)
+                self.rejected_windows.pop(name, None)
 
             return filtered
 
@@ -1015,6 +1071,11 @@ def create_filter_by_type(config, filter_type, update_guess=True):
             pred_jump_threshold=float(hybrid_cfg.get('pred_jump_threshold', 100.0)),
             process_noise=float(hybrid_cfg.get('process_noise', 1e-5)),
             measurement_noise=float(hybrid_cfg.get('measurement_noise', 1e-1)),
+            reacquire_rejected_count=int(hybrid_cfg.get('reacquire_rejected_count', 3)),
+            reacquire_spread_threshold=float(hybrid_cfg.get('reacquire_spread_threshold', 80.0)),
+            reacquire_max_jump_threshold=float(
+                hybrid_cfg.get('reacquire_max_jump_threshold', 250.0)
+            ),
             update_guess=update_guess
         )
     raise ValueError(f"Unsupported filter type: {filter_type}")
@@ -2665,8 +2726,8 @@ while not stop_requested:
             if X_M is None:  # 3D 射线未命中 mesh，跳过该候选
                 continue
             recognized_names.add(best_cls)
-            measured_names.add(best_cls)
-            add_position_measurement(best_cls, X_M, Y_M, (left, top, car_w, car_h))
+            if add_position_measurement(best_cls, X_M, Y_M, (left, top, car_w, car_h)):
+                measured_names.add(best_cls)
 
     for roi_idx, car_box in enumerate(roi_pos):
         if roi_idx in confirmed_roi_indices:

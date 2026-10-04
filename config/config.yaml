@@ -128,8 +128,8 @@ occlusion_hold:
 
 temporary_death_hold:
   enabled: true
-  max_center_distance: 80  # 车框中心偏移小于该像素值时认为还是同一辆车
-  max_size_change_ratio: 0.35  # 车框宽高变化比例小于该值时认为还是同一辆车
+  max_center_distance: 120  # 与颜色/编号关联使用同一尺度，减少短时检测框位移造成的位置冻结
+  max_size_change_ratio: 0.5  # 允许透视变化，仍通过中心距离限制避免串车
   update_position_from_car_box: true  # 号码丢失但车框仍可匹配时，使用当前车框继续更新位置，避免冻结后跳变
   box_lost_timeout: 3.0  # 号码丢失后如果车框也丢失，原地保持该秒数后取消标定
 
@@ -162,10 +162,13 @@ filter:
     prefilter_window: 3  # 预滤波窗口，建议3-4
     prefilter_mode: 'median'  # median/mean
     max_inactive_time: 2.0
-    raw_jump_threshold: 120.0  # 原始观测跳变门限（像素）
-    pred_jump_threshold: 100.0  # 相对预测跳变门限（像素）
+    raw_jump_threshold: 120.0  # 原始投影观测跳变门限（场地厘米）
+    pred_jump_threshold: 100.0  # 相对卡尔曼预测跳变门限（场地厘米）
     process_noise: 1e-5
     measurement_noise: 1e-1
+    reacquire_rejected_count: 3  # 同一已确认目标连续被门控拒绝后，需连续稳定几帧才重建轨迹
+    reacquire_spread_threshold: 80.0  # 重建候选点最大离散范围（场地厘米）
+    reacquire_max_jump_threshold: 250.0  # 旧轨迹仍有效时，不接受超过此距离的重建跳变
 
 filter_compare:
   enabled: false  # true时启用影子对比滤波，不参与串口发送,仅用于调试展示

@@ -8,3 +8,4 @@ input_videos/
 save_img/
 data/calibration/*
 !data/calibration/.gitkeep
+logs/
