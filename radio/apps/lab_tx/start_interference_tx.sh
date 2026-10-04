@@ -5,6 +5,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/env.sh"
 
+while (($#)); do
+  case "$1" in
+    --allow-gnuradio-3101)
+      export RM_RADIO_ALLOW_GNURADIO_3101=true
+      shift
+      ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: apps/lab_tx/start_interference_tx.sh [--allow-gnuradio-3101]
+
+--allow-gnuradio-3101 enables compatibility mode for GNU Radio 3.10.1.
+For laboratory/SIL debug only; do not use as formal TX validation evidence.
+EOF
+      exit 0
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
 if [[ -z "$INTERFERENCE_TX_URI" ]]; then
   echo "干扰波 TX 当前未连接，需单独接入并识别后设置 INTERFERENCE_TX_URI" >&2
   exit 2

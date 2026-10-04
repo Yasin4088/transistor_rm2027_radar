@@ -7,6 +7,28 @@ source "$SCRIPT_DIR/env.sh"
 # shellcheck disable=SC1091
 source "$RM_RADIO_WS/apps/common/lab_tx_safety.sh"
 
+while (($#)); do
+  case "$1" in
+    --allow-gnuradio-3101)
+      export RM_RADIO_ALLOW_GNURADIO_3101=true
+      shift
+      ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: apps/lab_tx/start_dual_tx.sh [--allow-gnuradio-3101]
+
+--allow-gnuradio-3101 enables compatibility mode for GNU Radio 3.10.1.
+For laboratory/SIL debug only; do not use as formal TX validation evidence.
+EOF
+      exit 0
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
 if [[ -z "$INTERFERENCE_TX_URI" ]]; then
   echo "干扰波 TX 当前未连接，不能启动双路 TX" >&2
   exit 2

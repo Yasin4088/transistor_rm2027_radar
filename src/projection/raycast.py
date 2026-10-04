@@ -59,10 +59,11 @@ class PixelToWorld:
 
 
 if __name__ == "__main__":
-    import sys
+    from pathlib import Path
     # 冒烟测试：加载 2025 PLY，随机发射一条射线验证求交
-    mesh = o3d.io.read_triangle_mesh(
-        "/home/elysia/robomaster/RM2025-Radar-Algorithm/field/RMUC2025_National.PLY")
+    repo_root = Path(__file__).resolve().parents[2]
+    mesh_path = repo_root / "data" / "field" / "RMUC2026_National.PLY"
+    mesh = o3d.io.read_triangle_mesh(str(mesh_path))
     print("mesh 加载成功, 顶点数:", len(np.asarray(mesh.vertices)))
     p2w = PixelToWorld(
         camera_matrix=[[2500.0, 0.0, 1536.0], [0.0, 2500.0, 1024.0], [0.0, 0.0, 1.0]],

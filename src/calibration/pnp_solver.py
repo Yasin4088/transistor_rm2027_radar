@@ -170,34 +170,3 @@ class PnPSolver:
             if 0 <= x < img.shape[1] and 0 <= y < img.shape[0]:
                 cv2.circle(img, (x, y), 5, (0, 255, 0), -1)
         return img
-
-
-if __name__ == "__main__":
-    # 冒烟测试：用 HKUST 的 demo 图 + keypoint_6.txt 验证链路
-    # 注意：需要图像点的像素坐标（在图上手动点 6 个点，或从标定文件读）
-    import sys
-
-    if len(sys.argv) < 3:
-        print("用法: python solvepnp.py <图像点txt> <图路径>")
-        print("图像点 txt 每行: x y（6 行，与 keypoint_6.txt 顺序对应）")
-        sys.exit(1)
-
-    image_points = np.loadtxt(sys.argv[1], dtype=np.float32)
-    object_points = np.loadtxt(
-        "/home/elysia/robomaster/RM2025-Radar-Algorithm/transform/keypoint_6.txt",
-        dtype=np.float32,
-    )
-    # HKUST demo 相机内参（2000万像素相机）
-    pnpsolver = PnPSolver(
-        camera_matrix=np.array(
-            [[5033.780199, 0.0, 2829.234535],
-             [0.0, 5036.139955, 1929.489557],
-             [0.0, 0.0, 1.0]], dtype=np.float32),
-        dist_coeffs=np.array([-0.061883, 0.104794, 0.000434, -0.000036, 0.0], dtype=np.float32),
-        verbose=True,
-    )
-    success, R, tvec, residual = pnpsolver.solve(object_points, image_points)
-    if success:
-        vis = pnpsolver.draw_visualize_image(cv2.imread(sys.argv[2]))
-        cv2.imwrite("/tmp/opencode/pnp_result.png", vis)
-        print("结果已保存: /tmp/opencode/pnp_result.png")

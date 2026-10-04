@@ -216,7 +216,8 @@ rm_radio_residual_pids() {
       $1 = ""
       cmd = $0
       if (index(ancestors, " " pid " ") > 0) next
-      if (cmd ~ /awk|[ \/]grep /) next
+      if (cmd ~ /awk|[ \/]grep |[ \/]rg /) next
+      if (cmd ~ /cursorsandbox/ && cmd ~ /ps -ef \| rg /) next
       for (i = 1; i <= n; i++) {
         if (pats[i] != "" && index(cmd, pats[i]) > 0) { print pid; break }
       }

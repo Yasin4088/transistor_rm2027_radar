@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import json
+import os
 import re
 import subprocess
 import sys
@@ -67,18 +68,29 @@ def audit_runtime() -> dict:
     }
 
 
-def validate(report: dict, *, require_latest: bool = False) -> list[str]:
+def _env_true(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def validate(
+    report: dict,
+    *,
+    require_latest: bool = False,
+    allow_gnuradio_3101: bool = False,
+) -> list[str]:
     errors = []
     version = _version_tuple(report["gnuradio_version"])
     linked_text = " ".join(report["linked_libraries"].values())
-    if version < MIN_GNURADIO:
+    is_rejected_3101 = any(version[:3] == prefix for prefix in REJECTED_GNURADIO_PREFIXES)
+    allow_legacy_3101 = allow_gnuradio_3101 and is_rejected_3101
+    if version < MIN_GNURADIO and not allow_legacy_3101:
         errors.append(
             f"GNU Radio {report['gnuradio_version']} is below the supported "
             f"minimum {'.'.join(map(str, MIN_GNURADIO))}"
         )
-    if any(version[:3] == prefix for prefix in REJECTED_GNURADIO_PREFIXES):
+    if is_rejected_3101 and not allow_gnuradio_3101:
         errors.append("GNU Radio 3.10.1 is rejected because its TX amplitude is not trusted")
-    if ".3.10.1" in linked_text:
+    if ".3.10.1" in linked_text and not allow_gnuradio_3101:
         errors.append("the imported gr-iio extension resolved a GNU Radio 3.10.1 shared library")
 
     expected_abi = ".".join(map(str, version[:3]))
@@ -112,16 +124,30 @@ def validate(report: dict, *, require_latest: bool = False) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--require-latest", action="store_true")
+    parser.add_argument("--allow-gnuradio-3101", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
+    allow_gnuradio_3101 = args.allow_gnuradio_3101 or _env_true("RM_RADIO_ALLOW_GNURADIO_3101")
     try:
         report = audit_runtime()
-        errors = validate(report, require_latest=args.require_latest)
+        errors = validate(
+            report,
+            require_latest=args.require_latest,
+            allow_gnuradio_3101=allow_gnuradio_3101,
+        )
     except Exception as exc:  # noqa: BLE001 - startup audit must fail closed
         print(f"[runtime-audit][ERROR] {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
     if not args.quiet:
         print("[runtime-audit] " + json.dumps(report, ensure_ascii=False, sort_keys=True))
+    if allow_gnuradio_3101:
+        version = _version_tuple(report["gnuradio_version"])
+        if any(version[:3] == prefix for prefix in REJECTED_GNURADIO_PREFIXES):
+            print(
+                "[runtime-audit][WARN] GNU Radio 3.10.1 compatibility mode is enabled; "
+                "TX amplitude is not trusted for formal validation/match use.",
+                file=sys.stderr,
+            )
     for error in errors:
         print(f"[runtime-audit][ERROR] {error}", file=sys.stderr)
     return 1 if errors else 0

@@ -5,6 +5,30 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VISION_PYTHON="${VISION_PYTHON:-$PROJECT_ROOT/.venv/bin/python}"
 SHARED_VISION_PYTHON="/home/elysia/robomaster/shark-radar-system/shark-radar-vision/.venv/bin/python"
 radio_pid=""
+MATCH_RX_ARGS=(--dry-run --no-panel --no-browser)
+
+while (($#)); do
+  case "$1" in
+    --allow-gnuradio-3101)
+      export RM_RADIO_ALLOW_GNURADIO_3101=true
+      MATCH_RX_ARGS+=(--allow-gnuradio-3101)
+      shift
+      ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: scripts/test_integrated_radio_loop.sh [--allow-gnuradio-3101]
+
+Runs dry-run integrated radio loopback verification.
+--allow-gnuradio-3101 enables compatibility mode for GNU Radio 3.10.1.
+EOF
+      exit 0
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      exit 2
+      ;;
+  esac
+done
 
 cleanup() {
   trap - EXIT INT TERM HUP
@@ -30,7 +54,7 @@ if [[ ! -f "$PROJECT_ROOT/radio/install/setup.bash" ]]; then
   "$PROJECT_ROOT/radio/build.sh"
 fi
 
-"$PROJECT_ROOT/radio/apps/match_rx/start.sh" --dry-run --no-panel --no-browser &
+"$PROJECT_ROOT/radio/apps/match_rx/start.sh" "${MATCH_RX_ARGS[@]}" &
 radio_pid=$!
 for _ in $(seq 1 100); do
   kill -0 "$radio_pid" 2>/dev/null || {

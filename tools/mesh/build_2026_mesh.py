@@ -1,5 +1,6 @@
 import numpy as np
 import open3d as o3d
+from pathlib import Path
 
 # ============================================================
 # 手建 2026 场地粗糙 mesh（依据：2026 规则手册结构 + 2026 stp 提取的尺寸/位置）
@@ -79,5 +80,7 @@ print('顶点数:', len(np.asarray(combined.vertices)))
 print('面数:', len(np.asarray(combined.triangles)))
 
 # 保存
-o3d.io.write_triangle_mesh('/home/elysia/robomaster/transistor_rm2027_radar/field/RMUC2026_simple.PLY', combined)
-print('已保存: field/RMUC2026_simple.PLY')
+repo_root = Path(__file__).resolve().parents[2]
+output_path = repo_root / "data" / "field" / "RMUC2026_simple.PLY"
+o3d.io.write_triangle_mesh(str(output_path), combined)
+print(f'已保存: {output_path}')

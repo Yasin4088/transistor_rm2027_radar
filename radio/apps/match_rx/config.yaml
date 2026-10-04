@@ -11,7 +11,7 @@ app:
   auto_open_browser: true
 
 radio:
-  side: red
+  side: blue
   interference_level: 1
   intelligent_mode: true
   # PZSDR P201Mini (AD9361): primary information-wave receiver.

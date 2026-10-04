@@ -453,12 +453,11 @@ def project_image_point_to_map(point_x, point_y):
             # 场地尺寸从 config 读取（半长，米制：mesh 是 ±14m/±7.5m 体系）
             field_long_m = field_long_half_cm / 100.0   # 长边半长（14.0m）
             field_short_m = field_short_half_cm / 100.0  # 短边半长（7.5m）
-            if state == 'R':
-                map_x = (-wz + field_long_m) * 100.0
-                map_y = (-wx + field_short_m) * 100.0
-            else:
-                map_x = (2.0 * field_long_m - (-wz + field_long_m)) * 100.0
-                map_y = (2.0 * field_short_m - (-wx + field_short_m)) * 100.0
+            # world -> 场地统一内部坐标（与阵营无关）。
+            # 阵营镜像仅在 convert_projected_map_point / send_point_* 阶段做一次，
+            # 避免蓝方在 raycast 路径被重复镜像后落到对侧。
+            map_x = (-wz + field_long_m) * 100.0
+            map_y = (-wx + field_short_m) * 100.0
             return map_y, map_x
         # 未命中：显式暴露（计数+节流日志），不静默降级
         global _raycast_miss_count
@@ -577,11 +576,16 @@ if projection_mode == 'affine':
 else:
     # --- 3D 射线模式（raycast） ---
     try:
-        from raycast import PixelToWorld, build_pixel_to_world_from_npz
+        from src.projection.raycast import PixelToWorld, build_pixel_to_world_from_npz
         _mesh = o3d.io.read_triangle_mesh(config['paths']['mesh_path'])
         # 优先加载已标定的外参（extrinsics.npz），否则用默认假外参
         import os as _os
-        _ext_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'extrinsics.npz')
+        _ext_path = _os.path.join(
+            _os.path.dirname(_os.path.abspath(__file__)),
+            'data',
+            'calibration',
+            'extrinsics.npz',
+        )
         if _os.path.isfile(_ext_path):
             _ext = np.load(_ext_path)
             _R, _T = _ext['R'], _ext['t']
@@ -842,46 +846,49 @@ class SlidingWindowFilter:
         self.update_guess = update_guess
         self.windows = {}
         self.last_update = {}
+        self._lock = threading.RLock()
 
     def add_data(self, name, x, y):
-        if name not in self.windows:
-            self.windows[name] = deque(maxlen=self.window_size)
+        with self._lock:
+            if name not in self.windows:
+                self.windows[name] = deque(maxlen=self.window_size)
 
-        # 异常值检测
-        if len(self.windows[name]) > 0:
-            last_x, last_y = self.windows[name][-1]
-            if (x - last_x) ** 2 + (y - last_y) ** 2 > self.threshold:
-                return
+            # 异常值检测
+            if len(self.windows[name]) > 0:
+                last_x, last_y = self.windows[name][-1]
+                if (x - last_x) ** 2 + (y - last_y) ** 2 > self.threshold:
+                    return
 
-        self.windows[name].append((x, y))
-        self.last_update[name] = time.time()
+            self.windows[name].append((x, y))
+            self.last_update[name] = time.time()
 
     def get_all_data(self):
-        current_time = time.time()
-        filtered = {}
+        with self._lock:
+            current_time = time.time()
+            filtered = {}
 
-        # 清理过期数据
-        to_remove = []
-        for name in self.windows:
-            if current_time - self.last_update.get(name, 0) > self.max_inactive_time:
-                to_remove.append(name)
-                if self.update_guess:
-                    guess_list[name] = True
+            # 清理过期数据
+            to_remove = []
+            for name in self.windows:
+                if current_time - self.last_update.get(name, 0) > self.max_inactive_time:
+                    to_remove.append(name)
+                    if self.update_guess:
+                        guess_list[name] = True
 
-        for name in to_remove:
-            del self.windows[name]
-            del self.last_update[name]
+            for name in to_remove:
+                del self.windows[name]
+                del self.last_update[name]
 
-        # 计算窗口均值
-        for name, window in self.windows.items():
-            if len(window) >= self.window_size:
-                x_avg = sum(p[0] for p in window) / len(window)
-                y_avg = sum(p[1] for p in window) / len(window)
-                filtered[name] = (x_avg, y_avg)
-                if self.update_guess:
-                    guess_list[name] = False
+            # 计算窗口均值
+            for name, window in self.windows.items():
+                if len(window) >= self.window_size:
+                    x_avg = sum(p[0] for p in window) / len(window)
+                    y_avg = sum(p[1] for p in window) / len(window)
+                    filtered[name] = (x_avg, y_avg)
+                    if self.update_guess:
+                        guess_list[name] = False
 
-        return filtered
+            return filtered
 
 
 class HybridGatedKalmanFilter:
@@ -907,6 +914,7 @@ class HybridGatedKalmanFilter:
         self.last_raw = {}
         self.process_noise = float(process_noise)
         self.measurement_noise = float(measurement_noise)
+        self._lock = threading.RLock()
 
     def _ensure_target(self, name):
         if name not in self.raw_windows:
@@ -916,6 +924,8 @@ class HybridGatedKalmanFilter:
                 process_noise=self.process_noise,
                 measurement_noise=self.measurement_noise
             )
+        # 避免新目标在首次 update 前被并发清理线程误判为超时
+        self.last_update.setdefault(name, time.time())
 
     def _prefilter_point(self, points):
         xs = [p[0] for p in points]
@@ -925,60 +935,64 @@ class HybridGatedKalmanFilter:
         return float(np.median(xs)), float(np.median(ys))
 
     def add_data(self, name, x, y):
-        now = time.time()
-        self._ensure_target(name)
+        with self._lock:
+            now = time.time()
+            self._ensure_target(name)
 
-        # 原始观测门控：抑制明显跳点
-        if name in self.last_raw:
-            dx = x - self.last_raw[name][0]
-            dy = y - self.last_raw[name][1]
-            if dx * dx + dy * dy > self.raw_jump_threshold * self.raw_jump_threshold:
-                return
-
-        self.raw_windows[name].append((x, y))
-        self.last_raw[name] = (x, y)
-        fx, fy = self._prefilter_point(self.raw_windows[name])
-
-        # 卡尔曼预测门控：观测偏离预测过大则丢弃该观测
-        kf_obj = self.kf_filters[name]
-        if kf_obj.last_measurement is not None:
-            pred = kf_obj.get_estimate()
-            if pred is not None:
-                pdx = fx - pred[0]
-                pdy = fy - pred[1]
-                if pdx * pdx + pdy * pdy > self.pred_jump_threshold * self.pred_jump_threshold:
+            # 原始观测门控：抑制明显跳点
+            if name in self.last_raw:
+                dx = x - self.last_raw[name][0]
+                dy = y - self.last_raw[name][1]
+                if dx * dx + dy * dy > self.raw_jump_threshold * self.raw_jump_threshold:
                     return
 
-        kf_obj.update((fx, fy))
-        self.last_update[name] = now
-        if self.update_guess:
-            guess_list[name] = False
+            self.raw_windows[name].append((x, y))
+            self.last_raw[name] = (x, y)
+            fx, fy = self._prefilter_point(self.raw_windows[name])
 
-    def get_all_data(self):
-        current_time = time.time()
-        filtered = {}
-        to_remove = []
+            # 卡尔曼预测门控：观测偏离预测过大则丢弃该观测
+            kf_obj = self.kf_filters.get(name)
+            if kf_obj is None:
+                return
+            if kf_obj.last_measurement is not None:
+                pred = kf_obj.get_estimate()
+                if pred is not None:
+                    pdx = fx - pred[0]
+                    pdy = fy - pred[1]
+                    if pdx * pdx + pdy * pdy > self.pred_jump_threshold * self.pred_jump_threshold:
+                        return
 
-        for name in list(self.kf_filters.keys()):
-            if current_time - self.last_update.get(name, 0) > self.max_inactive_time:
-                to_remove.append(name)
-                if self.update_guess:
-                    guess_list[name] = True
-                continue
-
-            estimate = self.kf_filters[name].get_estimate()
-            if estimate is not None:
-                filtered[name] = estimate
+            kf_obj.update((fx, fy))
+            self.last_update[name] = now
             if self.update_guess:
                 guess_list[name] = False
 
-        for name in to_remove:
-            self.raw_windows.pop(name, None)
-            self.kf_filters.pop(name, None)
-            self.last_update.pop(name, None)
-            self.last_raw.pop(name, None)
+    def get_all_data(self):
+        with self._lock:
+            current_time = time.time()
+            filtered = {}
+            to_remove = []
 
-        return filtered
+            for name in list(self.kf_filters.keys()):
+                if current_time - self.last_update.get(name, 0) > self.max_inactive_time:
+                    to_remove.append(name)
+                    if self.update_guess:
+                        guess_list[name] = True
+                    continue
+
+                estimate = self.kf_filters[name].get_estimate()
+                if estimate is not None:
+                    filtered[name] = estimate
+                if self.update_guess:
+                    guess_list[name] = False
+
+            for name in to_remove:
+                self.raw_windows.pop(name, None)
+                self.kf_filters.pop(name, None)
+                self.last_update.pop(name, None)
+                self.last_raw.pop(name, None)
+
+            return filtered
 
 
 def create_filter_by_type(config, filter_type, update_guess=True):

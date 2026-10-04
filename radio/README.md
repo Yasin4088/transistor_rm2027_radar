@@ -28,11 +28,13 @@ PZSDR RX1 / Nano-A RX2
 ## 构建
 
 ```bash
-cd /home/elysia/robomaster/transistor_rm2027_radar
+cd /home/robot/transistor_rm2027_radar
 ./radio/build.sh
 ```
 
 ## 纯软件闭环
+
+>主要证明的是链路通断和模块协同，不是“解码质量验收”
 
 不访问 SDR，不写真实裁判串口：
 

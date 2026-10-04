@@ -13,6 +13,14 @@ while (($#)); do
       RADIO_ARGS+=("$1")
       shift
       ;;
+    --allow-gnuradio-3101)
+      export RM_RADIO_ALLOW_GNURADIO_3101=true
+      shift
+      ;;
+    --allow-unaudited-runtime)
+      export RM_RADIO_ALLOW_UNAUDITED_RUNTIME=true
+      shift
+      ;;
     --radio-only)
       RUN_VISION=false
       shift
@@ -21,10 +29,17 @@ while (($#)); do
       cat <<'EOF'
 Usage: scripts/start_integrated_radar.sh [--dry-run] [--no-panel] [--no-browser]
                                          [--headless|--native-gui] [--radio-only]
+                                         [--allow-gnuradio-3101]
+                                         [--allow-unaudited-runtime]
 
 Starts the in-repository ROS2/GNU Radio backend and the Python 3.12 vision
 process as one supervised application. --dry-run avoids real SDR and referee
 serial I/O. LabTX is deliberately separate and is never started here.
+
+Use --allow-unaudited-runtime only for temporary debugging on machines that
+do not meet the audited GNU Radio runtime requirements.
+Use --allow-gnuradio-3101 to run with GNU Radio 3.10.1 compatibility mode
+(SIL/debug only; TX amplitude is not trusted for formal validation).
 EOF
       exit 0
       ;;

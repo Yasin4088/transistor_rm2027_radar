@@ -12,6 +12,7 @@ for arg in "$@"; do
     --no-panel) export RUN_PANEL=false ;;
     --panel-only) export RUN_RX=false RUN_REFEREE=false RUN_PANEL=true RUN_AUTO_PASSWORD=false RUN_RADAR_INTEGRATION=false RUN_RECORDER=false RUN_VISION_BRIDGE=false ;;
     --rx-only) export RUN_RX=true RUN_REFEREE=false RUN_PANEL=false RUN_AUTO_PASSWORD=false RUN_RADAR_INTEGRATION=false RUN_RECORDER=false RUN_VISION_BRIDGE=false ;;
+    --allow-gnuradio-3101) export RM_RADIO_ALLOW_GNURADIO_3101=true ;;
     --native-gui) export RM_RADIO_NATIVE_GUI=true ;;
     --no-native-gui|--headless) export RM_RADIO_NATIVE_GUI=false ;;
     --no-browser) export RM_RADIO_AUTO_OPEN_BROWSER=false ;;
@@ -19,6 +20,7 @@ for arg in "$@"; do
       cat <<'EOF'
 Usage: apps/match_rx/start.sh [--dry-run] [--no-panel] [--panel-only] [--rx-only]
                               [--native-gui|--no-native-gui] [--no-browser]
+                              [--allow-gnuradio-3101]
 
 Starts the match RX application: dual ANTSDR RX, referee serial bridge, and
 the match web panel. Configuration comes from apps/match_rx/config.yaml and may
@@ -29,6 +31,8 @@ Chrome tab. RX1 uses the continuous Gaussian + M&M decoder, while RX2 uses
 the legacy streaming decoder plus its IQ-assisted path. --native-gui is an
 optional GNU Radio diagnostic mode, while --no-browser starts the web service
 without opening a browser.
+--allow-gnuradio-3101 enables compatibility mode for GNU Radio 3.10.1. Use
+for SIL/debug only; TX amplitude remains unaudited for formal validation.
 When no graphical desktop is reachable the launcher falls back to headless
 web spectrum mode instead of aborting the RX application.
 EOF
@@ -92,7 +96,25 @@ runtime_audit_args=()
 if [[ "${RM_RADIO_REQUIRE_LATEST_RUNTIME:-false}" == "true" ]]; then
   runtime_audit_args+=(--require-latest)
 fi
-python3 "$RM_RADIO_WS/apps/common/check_gnuradio_runtime.py" "${runtime_audit_args[@]}"
+runtime_audit_rc=0
+python3 "$RM_RADIO_WS/apps/common/check_gnuradio_runtime.py" "${runtime_audit_args[@]}" || runtime_audit_rc=$?
+if (( runtime_audit_rc != 0 )); then
+  allow_unaudited_runtime=false
+  case "${RM_RADIO_DRY_RUN:-false}" in
+    1|true|TRUE|yes|YES|on|ON) allow_unaudited_runtime=true ;;
+  esac
+  case "${RM_RADIO_ALLOW_UNAUDITED_RUNTIME:-false}" in
+    1|true|TRUE|yes|YES|on|ON) allow_unaudited_runtime=true ;;
+  esac
+  if [[ "$allow_unaudited_runtime" == "true" ]]; then
+    echo "[match-rx][WARN] runtime audit failed (rc=$runtime_audit_rc), but continuing due to dry-run/override." >&2
+    echo "[match-rx][WARN] Do NOT use this mode for real TX power validation or match operation." >&2
+  else
+    echo "[match-rx][ERROR] runtime audit failed (rc=$runtime_audit_rc). Refusing to start." >&2
+    echo "[match-rx][ERROR] Use --dry-run for SIL, set RM_RADIO_ALLOW_GNURADIO_3101=true for 3.10.1 compatibility mode, or set RM_RADIO_ALLOW_UNAUDITED_RUNTIME=true only for temporary debugging." >&2
+    exit "$runtime_audit_rc"
+  fi
+fi
 
 # 每次启动都替换旧的 RX 套件；BASHPID/祖先进程过滤保证不会误杀本次启动器。
 MATCH_RESIDUAL_PATTERNS=(

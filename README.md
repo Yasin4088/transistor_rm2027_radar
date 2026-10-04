@@ -60,12 +60,13 @@ Humble 和 GNU Radio。两侧通过仅监听 `127.0.0.1` 的 UDP sidecar 交换 
 transistor_rm2027_radar/
 ├── main.py                         # 视觉主循环
 ├── config/config.yaml              # 视觉、投影、融合与 UI 配置
-├── raycast.py                      # 像素到 3D 场地坐标
-├── solvepnp.py                     # PnP 外参标定
-├── calibrate_intrinsics.py         # 相机内参标定
-├── field/                          # 场地 mesh
+├── src/projection/raycast.py       # 像素到 3D 场地坐标
+├── src/calibration/pnp_solver.py   # PnP 外参求解器
+├── data/field/                     # 场地 mesh
 ├── models/                         # 车辆与装甲板模型
 ├── src/                            # 视觉侧模块
+├── scripts/calibration/            # 标定脚本（内参/外参/点选）
+├── data/calibration/               # 标定输入与输出（内参、外参、点文件）
 ├── radio/                          # ROS2/GNU Radio 无线电后端
 │   ├── apps/match_rx/              # 比赛双路接收
 │   ├── apps/lab_tx/                # 隔离的实验室发射工具
@@ -224,10 +225,10 @@ RM_RADIO_REAL_REFEREE_CONFIRM=true \
          -> 场地 mesh 求交 -> 内部地图坐标 -> 裁判坐标
 ```
 
-- `camera_intrinsics.npz`：相机内参；
-- `extrinsics.npz`：相机相对场地的外参；
-- `field/*.PLY`：用于射线求交的场地 mesh；
-- `homography_matrix/*.npy`：2D 仿射回退标定。
+- `data/calibration/camera_intrinsics.npz`：相机内参；
+- `data/calibration/extrinsics.npz`：相机相对场地的外参；
+- `data/field/*.PLY`：用于射线求交的场地 mesh；
+- `data/homography_matrix/*.npy`：2D 仿射回退标定。
 
 相机、更换镜头、分辨率、架设位置或场地模型发生变化时，应重新执行内参/外参
 标定。射线未命中 mesh 时系统返回无效点，不会把图像像素误当作场地坐标上报。
