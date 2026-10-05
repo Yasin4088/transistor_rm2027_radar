@@ -77,6 +77,46 @@ with open("config/config.yaml", "r", encoding="utf-8") as f:  # 指定 UTF-8 编
 _runtime_status_error_reported = False
 
 
+def resolve_projection_mode(runtime_config):
+    """Select projection mode from env/terminal input, with config value as fallback."""
+    projection_cfg = runtime_config.setdefault('projection', {})
+    default_mode = str(projection_cfg.get('mode', 'raycast')).strip().lower()
+    if default_mode not in ('affine', 'raycast'):
+        print(f"未知投影模式默认值 {default_mode}，已回退到 raycast")
+        default_mode = 'raycast'
+
+    env_mode = str(os.environ.get('TRANSISTOR_PROJECTION_MODE', '')).strip().lower()
+    env_mode_map = {'1': 'affine', '2': 'raycast', 'affine': 'affine', 'raycast': 'raycast'}
+    if env_mode:
+        chosen_mode = env_mode_map.get(env_mode)
+        if chosen_mode:
+            projection_cfg['mode'] = chosen_mode
+            print(f"投影模式: {chosen_mode}（环境变量 TRANSISTOR_PROJECTION_MODE）")
+            return chosen_mode
+        print(f"忽略无效环境变量 TRANSISTOR_PROJECTION_MODE={env_mode}，继续使用默认/终端输入")
+
+    if not sys.stdin.isatty():
+        projection_cfg['mode'] = default_mode
+        print(f"投影模式: {default_mode}（非交互终端，使用配置默认值）")
+        return default_mode
+
+    prompt = (
+        "\n请选择投影模式:\n"
+        "  1) affine  2D仿射（shark）\n"
+        "  2) raycast 3D射线（港科大）\n"
+        f"请输入 1 或 2（回车默认 {default_mode}）: "
+    )
+    choice_map = {'1': 'affine', '2': 'raycast', '': default_mode}
+    while True:
+        choice = input(prompt).strip().lower()
+        chosen_mode = choice_map.get(choice)
+        if chosen_mode:
+            projection_cfg['mode'] = chosen_mode
+            print(f"投影模式: {chosen_mode}（终端选择）")
+            return chosen_mode
+        print("输入无效，请输入 1 或 2。")
+
+
 def report_runtime_status(**values):
     """Report launcher status without allowing monitoring failures to stop the match."""
     global _runtime_status_error_reported
@@ -560,8 +600,8 @@ else:
 mask_image = cv2.imread(config['paths']['map_images']['mask'])   # 仿射选层用，保留
 map_backup = cv2.imread(config['paths']['map_images']['backup'])
 
-# 投影模式初始化（config 切换 2D 仿射 / 3D 射线）
-projection_mode = config.get('projection', {}).get('mode', 'raycast')
+# 投影模式初始化（默认来自 config，可在启动时终端选择 1/2 覆盖）
+projection_mode = resolve_projection_mode(config)
 
 M_ground = None
 M_height_r = None
